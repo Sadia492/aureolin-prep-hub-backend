@@ -1,0 +1,9 @@
+module.exports.authController = require('./auth.controller');
+module.exports.userController = require('./user.controller');
+module.exports.courseController = require('./course.controller');
+module.exports.examController = require('./exam.controller');
+module.exports.questionController = require('./question.controller');
+module.exports.attemptController = require('./attempt.controller');
+module.exports.qnaController = require('./qna.controller');
+module.exports.analyticsController = require('./analytics.controller');
+module.exports.dashboardController = require('./dashboard.controller');
