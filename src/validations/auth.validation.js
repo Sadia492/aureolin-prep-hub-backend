@@ -7,7 +7,19 @@ const register = {
     email: Joi.string().required().email(),
     password: Joi.string().required().custom(password),
     name: Joi.string().required(),
-    role: Joi.string().valid(...roles),
+    role: Joi.string().valid(...roles).default('student'),
+    // Add these fields for student registration
+    background: Joi.string().when('role', {
+      is: 'student',
+      then: Joi.string().valid('Science', 'Business Studies', 'Humanities').required(),
+      otherwise: Joi.string().optional(),
+    }),
+    targetUnit: Joi.string().when('role', {
+      is: 'student',
+      then: Joi.string().valid('A Unit', 'C Unit', 'A & C Unit').required(),
+      otherwise: Joi.string().optional(),
+    }),
+    phone: Joi.string().optional(),
   }),
 };
 

@@ -9,11 +9,9 @@ const auth = (...requiredRights) => async (req, res, next) => {
   try {
     let token;
     const authHeader = req.headers.authorization;
-    
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
-    } else if (req.cookies && req.cookies.accessToken) {
-      token = req.cookies.accessToken;
     }
 
     if (!token) {
@@ -21,7 +19,7 @@ const auth = (...requiredRights) => async (req, res, next) => {
     }
 
     const payload = jwt.verify(token, config.jwt.secret);
-    
+
     const user = await User.findById(payload.sub);
     if (!user) {
       throw new ApiError(httpStatus.UNAUTHORIZED, 'Please authenticate');
@@ -31,7 +29,9 @@ const auth = (...requiredRights) => async (req, res, next) => {
 
     if (requiredRights.length) {
       const userRights = roleRights.get(user.role) || [];
-      const hasRequiredRights = requiredRights.every((requiredRight) => userRights.includes(requiredRight));
+      const hasRequiredRights = requiredRights.every(
+        (requiredRight) => userRights.includes(requiredRight)
+      );
       if (!hasRequiredRights && req.params.userId !== user.id) {
         throw new ApiError(httpStatus.FORBIDDEN, 'Forbidden');
       }

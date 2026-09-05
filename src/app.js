@@ -30,14 +30,14 @@ app.use(cookieParser());
 // enable cors
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'https://taskflow-project-harmony.vercel.app'],	
+    origin: ['http://localhost:3001', 'https://taskflow-project-harmony.vercel.app'],	
     credentials: true,
   })
 );
 
 // root route
 app.get('/', (req, res) => {
-  res.send('Welcome to TaskFlow');
+  res.send('Welcome to Aureolin Prep Hub Backend');
 });
 
 // api routes
