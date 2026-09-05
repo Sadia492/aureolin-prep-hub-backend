@@ -1,3 +1,4 @@
+// backend/src/models/user.model.js
 const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
@@ -36,11 +37,16 @@ const userSchema = mongoose.Schema(
       },
       private: true,
     },
+    phone: {
+      type: String,
+      trim: true,
+    },
     role: {
       type: String,
       enum: roles,
       default: 'student',
     },
+    // Student specific fields
     background: {
       type: String,
       trim: true,
@@ -49,12 +55,40 @@ const userSchema = mongoose.Schema(
       type: String,
       trim: true,
     },
-    isEmailVerified: {
+    // Teacher specific fields
+    subject: {
+      type: String,
+      trim: true,
+    },
+    qualifications: {
+      type: String,
+      trim: true,
+    },
+    experience: {
+      type: String,
+      trim: true,
+    },
+    bio: {
+      type: String,
+      trim: true,
+    },
+    expertise: {
+      type: [String],
+      default: [],
+    },
+    avatar: {
+      type: String,
+      trim: true,
+    },
+    isActive: {
       type: Boolean,
-      default: false,
+      default: true,
     },
   },
-  { timestamps: true, versionKey: false }
+  { 
+    timestamps: true, 
+    versionKey: false 
+  }
 );
 
 userSchema.plugin(mongooseDelete, { overrideMethods: 'all', deletedAt: true });
@@ -72,11 +106,17 @@ userSchema.methods.isPasswordMatch = async function (password) {
 
 userSchema.pre('save', async function () {
   const user = this;
-
   if (user.isModified('password')) {
     user.password = await bcrypt.hash(user.password, 8);
   }
 });
+
+userSchema.methods.toJSON = function() {
+  const user = this.toObject();
+  delete user.password;
+  delete user.__v;
+  return user;
+};
 
 const User = mongoose.model('User', userSchema);
 

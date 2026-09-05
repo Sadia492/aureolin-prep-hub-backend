@@ -1,3 +1,4 @@
+// backend/src/validations/auth.validation.js
 const Joi = require('joi');
 const { password } = require('./custom.validation');
 const { roles } = require('../config/roles');
@@ -7,8 +8,9 @@ const register = {
     email: Joi.string().required().email(),
     password: Joi.string().required().custom(password),
     name: Joi.string().required(),
+    phone: Joi.string().optional(),
     role: Joi.string().valid(...roles).default('student'),
-    // Add these fields for student registration
+    // Student specific fields
     background: Joi.string().when('role', {
       is: 'student',
       then: Joi.string().valid('Science', 'Business Studies', 'Humanities').required(),
@@ -19,7 +21,32 @@ const register = {
       then: Joi.string().valid('A Unit', 'C Unit', 'A & C Unit').required(),
       otherwise: Joi.string().optional(),
     }),
-    phone: Joi.string().optional(),
+    // Teacher specific fields (for admin creating teachers)
+    subject: Joi.string().when('role', {
+      is: 'teacher',
+      then: Joi.string().required(),
+      otherwise: Joi.string().optional(),
+    }),
+    qualifications: Joi.string().when('role', {
+      is: 'teacher',
+      then: Joi.string().optional(),
+      otherwise: Joi.string().optional(),
+    }),
+    experience: Joi.string().when('role', {
+      is: 'teacher',
+      then: Joi.string().optional(),
+      otherwise: Joi.string().optional(),
+    }),
+    bio: Joi.string().when('role', {
+      is: 'teacher',
+      then: Joi.string().optional(),
+      otherwise: Joi.string().optional(),
+    }),
+    expertise: Joi.array().items(Joi.string()).when('role', {
+      is: 'teacher',
+      then: Joi.array().optional(),
+      otherwise: Joi.array().optional(),
+    }),
   }),
 };
 
