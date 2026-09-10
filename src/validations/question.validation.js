@@ -1,13 +1,21 @@
+// backend/src/validations/question.validation.js
 const Joi = require('joi');
 const { objectId } = require('./custom.validation');
+
+const subjectEnum = [
+  'Bangla', 'English', 'ICT',
+  'Accounting', 'Business Organization', 'Economics', 'Statistics', 'Mathematics',
+  'Physics', 'Chemistry', 'Biology', 'Higher Math',
+];
 
 const createQuestion = {
   body: Joi.object().keys({
     question: Joi.string().required(),
-    options: Joi.array().items(Joi.string()).min(2).required(),
-    correctAnswer: Joi.number().min(0).required(),
+    options: Joi.array().items(Joi.string()).length(4).required(),
+    correctAnswer: Joi.number().integer().min(0).max(3).required(),
     explanation: Joi.string().allow(''),
-    subject: Joi.string().required(),
+    subject: Joi.string().valid(...subjectEnum).required(),
+    marks: Joi.number().min(1).default(1),
   }),
 };
 
@@ -18,10 +26,11 @@ const updateQuestion = {
   body: Joi.object()
     .keys({
       question: Joi.string(),
-      options: Joi.array().items(Joi.string()).min(2),
-      correctAnswer: Joi.number().min(0),
+      options: Joi.array().items(Joi.string()).length(4),
+      correctAnswer: Joi.number().integer().min(0).max(3),
       explanation: Joi.string().allow(''),
-      subject: Joi.string(),
+      subject: Joi.string().valid(...subjectEnum),
+      marks: Joi.number().min(1),
     })
     .min(1),
 };

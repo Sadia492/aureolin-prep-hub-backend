@@ -1,3 +1,4 @@
+// backend/src/routes/exam.route.js
 const express = require('express');
 const auth = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -6,6 +7,7 @@ const examController = require('../controllers/exam.controller');
 
 const router = express.Router();
 
+// ✅ Public/authenticated list & create
 router
   .route('/')
   .post(
@@ -15,13 +17,31 @@ router
   )
   .get(
     auth('getExams'),
+    validate(examValidation.getExams),
     examController.getExams
   );
 
+// ✅ Student actions — MUST come before /:examId
+router.get(
+  '/:examId/start',
+  auth('takeExams'),
+  validate(examValidation.getExam),
+  examController.startExam
+);
+
+router.post(
+  '/:examId/submit',
+  auth('takeExams'),
+  validate(examValidation.submitExam),
+  examController.submitExam
+);
+
+// ✅ Standard CRUD
 router
   .route('/:examId')
   .get(
     auth('getExams'),
+    validate(examValidation.getExam),
     examController.getExam
   )
   .patch(
@@ -31,21 +51,8 @@ router
   )
   .delete(
     auth('manageExams'),
+    validate(examValidation.deleteExam),
     examController.deleteExam
   );
-
-router.post(
-  '/:examId/questions',
-  auth('manageExams'),
-  validate(examValidation.addQuestion),
-  examController.addQuestion
-);
-
-router.delete(
-  '/:examId/questions/:questionId',
-  auth('manageExams'),
-  validate(examValidation.removeQuestion),
-  examController.removeQuestion
-);
 
 module.exports = router;

@@ -17,10 +17,15 @@ const createQuestion = catchAsync(async (req, res) => {
 
 const getQuestions = catchAsync(async (req, res) => {
   const filter = {};
-  if (req.query.subject) {
-    filter.subject = req.query.subject;
+  if (req.query.subject) filter.subject = req.query.subject;
+  if (req.query.search) {
+    filter.question = { $regex: req.query.search, $options: 'i' };
   }
-  const questions = await questionService.queryQuestions(filter);
+
+  const options = {};
+  if (req.query.limit) options.limit = parseInt(req.query.limit);
+
+  const questions = await questionService.queryQuestions(filter, options);
   res.send(new ApiResponse(httpStatus.OK, questions, 'Questions retrieved successfully'));
 });
 

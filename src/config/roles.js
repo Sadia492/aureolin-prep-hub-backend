@@ -5,6 +5,7 @@ const allRoles = {
     'getExams',
     'getQuestions',
     'createAttempts',
+    'takeExams',
     'getAttempts',
     'createQnAs',
     'getQnAs',

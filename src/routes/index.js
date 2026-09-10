@@ -57,7 +57,7 @@ const defaultRoutes = [
   {
     path: '/materials',
     route: materialRoute,
-  },
+  }
 ];
 
 defaultRoutes.forEach((route) => {

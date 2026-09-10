@@ -1,3 +1,4 @@
+// backend/src/services/question.service.js
 const httpStatus = require('http-status').default;
 const { Question } = require('../models');
 const ApiError = require('../utils/ApiError');
@@ -7,8 +8,14 @@ const createQuestion = async (questionBody) => {
 };
 
 const queryQuestions = async (filter = {}, options = {}) => {
-  return Question.find(filter)
-    .populate('createdBy', 'name email role');
+  const query = Question.find(filter)
+    .populate('createdBy', 'name email role')
+    .sort({ createdAt: -1 });
+
+  if (options.limit) query.limit(options.limit);
+  if (options.skip) query.skip(options.skip);
+
+  return query;
 };
 
 const getQuestionById = async (questionId) => {
@@ -37,7 +44,6 @@ const deleteQuestionById = async (questionId) => {
   }
 
   await question.deleteOne();
-
   return question;
 };
 
