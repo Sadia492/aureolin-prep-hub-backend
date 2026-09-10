@@ -1,3 +1,4 @@
+// backend/src/controllers/qna.controller.js
 const httpStatus = require('http-status').default;
 const catchAsync = require('../utils/catchAsync');
 const ApiError = require('../utils/ApiError');
@@ -38,8 +39,10 @@ const getQnA = catchAsync(async (req, res) => {
 });
 
 const answerQnA = catchAsync(async (req, res) => {
+  // ✅ Fix: Ensure answerImages is passed correctly
   const qna = await qnaService.answerQnA(req.params.qnaId, {
-    ...req.body,
+    answer: req.body.answer,
+    answerImages: req.body.answerImages || [], // ✅ Pass answerImages
     answeredBy: req.user.id,
   });
 
@@ -47,12 +50,23 @@ const answerQnA = catchAsync(async (req, res) => {
 });
 
 const updateQnA = catchAsync(async (req, res) => {
-  const qna = await qnaService.updateQnAById(req.params.qnaId, req.body);
+  // ✅ Fix: Pass userId and role to service
+  const qna = await qnaService.updateQnAById(
+    req.params.qnaId, 
+    req.body,
+    req.user.id,
+    req.user.role
+  );
   res.send(new ApiResponse(httpStatus.OK, qna, 'QnA updated successfully'));
 });
 
 const deleteQnA = catchAsync(async (req, res) => {
-  await qnaService.deleteQnAById(req.params.qnaId);
+  // ✅ Fix: Pass userId and role to service
+  await qnaService.deleteQnAById(
+    req.params.qnaId,
+    req.user.id,
+    req.user.role
+  );
   res.status(httpStatus.NO_CONTENT).send();
 });
 

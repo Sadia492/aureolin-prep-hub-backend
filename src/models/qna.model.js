@@ -1,3 +1,4 @@
+// backend/src/models/qna.model.js
 const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
 
@@ -21,9 +22,19 @@ const qnaSchema = new mongoose.Schema(
       trim: true,
     },
 
+    images: {
+      type: [String],
+      default: [],
+    },
+
     answer: {
       type: String,
       trim: true,
+    },
+
+    answerImages: {
+      type: [String],
+      default: [],
     },
 
     answeredBy: {
