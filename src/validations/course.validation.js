@@ -1,3 +1,4 @@
+// backend/src/validations/course.validation.js
 const Joi = require('joi');
 const { objectId } = require('./custom.validation');
 
@@ -42,9 +43,33 @@ const unenrollStudent = {
   }),
 };
 
+// ✅ Public courses validation
+const getPublicCourses = {
+  query: Joi.object().keys({
+    limit: Joi.number().integer().min(1).max(100).default(3),
+    unit: Joi.string().optional(),
+  }),
+};
+
+const getCourse = {
+  params: Joi.object().keys({
+    courseId: Joi.string().custom(objectId),
+  }),
+};
+
+const getCourses = {
+  query: Joi.object().keys({
+    limit: Joi.number().integer().min(1).max(100).default(10),
+    page: Joi.number().integer().min(1).default(1),
+  }),
+};
+
 module.exports = {
   createCourse,
   updateCourse,
   enrollStudent,
   unenrollStudent,
+  getPublicCourses,
+  getCourse,
+  getCourses,
 };

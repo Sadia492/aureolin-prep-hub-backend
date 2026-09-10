@@ -23,6 +23,7 @@ const allRoles = {
     'getQnAs',
     'getAnalytics',
     'getDashboard',
+     'getSuccessStories',
   ],
   admin: [
     'getUsers',
@@ -40,6 +41,7 @@ const allRoles = {
     'manageQnAs',
     'getAnalytics',
     'getDashboard',
+    'getSuccessStories', 'manageSuccessStories', // ✅ Added
   ],
 };
 

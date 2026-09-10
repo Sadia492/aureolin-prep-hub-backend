@@ -5,6 +5,32 @@ const userValidation = require('../validations/user.validation');
 const userController = require('../controllers/user.controller');
 
 const router = express.Router();
+router.get(
+  '/teachers/public',
+  validate(userValidation.getPublicTeachers),
+  userController.getPublicTeachers
+);
+
+// ✅ Current user profile routes (before /:userId)
+router.get(
+  '/me',
+  auth(),
+  userController.getMe
+);
+
+router.patch(
+  '/me',
+  auth(),
+  validate(userValidation.updateMe),
+  userController.updateMe
+);
+
+router.patch(
+  '/me/password',
+  auth(),
+  validate(userValidation.changePassword),
+  userController.changePassword
+);
 
 router
   .route('/')

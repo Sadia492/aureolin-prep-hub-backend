@@ -1,3 +1,4 @@
+// backend/src/controllers/course.controller.js
 const httpStatus = require('http-status').default;
 const catchAsync = require('../utils/catchAsync');
 const ApiError = require('../utils/ApiError');
@@ -16,7 +17,10 @@ const createCourse = catchAsync(async (req, res) => {
 });
 
 const getCourses = catchAsync(async (req, res) => {
-  const courses = await courseService.queryCourses(req.user);
+  // ✅ Pass filter, options, and user separately
+  const filter = {};
+  const options = {};
+  const courses = await courseService.queryCourses(filter, options, req.user);
   res.send(new ApiResponse(httpStatus.OK, courses, 'Courses retrieved successfully'));
 });
 
@@ -58,6 +62,32 @@ const unenrollStudent = catchAsync(async (req, res) => {
   res.send(new ApiResponse(httpStatus.OK, course, 'Student unenrolled successfully'));
 });
 
+// ✅ Fixed: Public courses controller
+const getPublicCourses = catchAsync(async (req, res) => {
+  const limit = parseInt(req.query.limit) || 3;
+  const unit = req.query.unit;
+  
+  const filter = {};
+  if (unit) filter.unit = unit;
+
+  const options = {
+    limit,
+    sortBy: 'createdAt:desc',
+  };
+
+  // ✅ Pass filter and options correctly (no user)
+  const result = await courseService.queryCourses(filter, options, null);
+  
+  // ✅ Handle both paginated and non-paginated results
+  const courses = result?.docs || result || [];
+  
+  res.send(new ApiResponse(
+    httpStatus.OK,
+    { docs: courses, totalDocs: courses.length },
+    'Courses retrieved successfully'
+  ));
+});
+
 module.exports = {
   createCourse,
   getCourses,
@@ -66,4 +96,5 @@ module.exports = {
   deleteCourse,
   enrollStudent,
   unenrollStudent,
+  getPublicCourses,
 };

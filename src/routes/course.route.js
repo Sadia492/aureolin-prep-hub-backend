@@ -1,3 +1,4 @@
+// backend/src/routes/course.route.js
 const express = require('express');
 const auth = require('../middleware/auth');
 const validate = require('../middleware/validate');
@@ -6,6 +7,14 @@ const courseController = require('../controllers/course.controller');
 
 const router = express.Router();
 
+// ✅ Public route for courses (no auth required) - MUST be before /:courseId
+router.get(
+  '/public',
+  validate(courseValidation.getPublicCourses),
+  courseController.getPublicCourses
+);
+
+// Protected routes
 router
   .route('/')
   .post(
@@ -22,6 +31,7 @@ router
   .route('/:courseId')
   .get(
     auth('getCourses'),
+    validate(courseValidation.getCourse),
     courseController.getCourse
   )
   .patch(

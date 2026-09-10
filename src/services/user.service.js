@@ -78,6 +78,41 @@ const deleteUserById = async (userId) => {
   await user.delete(); // Soft delete using mongoose-delete
   return user;
 };
+// ✅ Add this new function for public teachers
+const getPublicTeachers = async (limit = 4) => {
+  const filter = { 
+    role: 'teacher', 
+    isActive: true 
+  };
+  
+  const options = {
+    limit: parseInt(limit),
+    sortBy: 'createdAt:desc',
+    select: 'name subject qualifications experience bio expertise avatar email phone',
+  };
+
+  const result = await User.paginate(filter, options);
+  return result;
+};
+// ✅ Change password
+const changePassword = async (userId, currentPassword, newPassword) => {
+  const user = await User.findById(userId).select('+password');
+  
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+  }
+
+  const isMatch = await user.isPasswordMatch(currentPassword);
+  if (!isMatch) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, 'Current password is incorrect');
+  }
+
+  user.password = newPassword;
+  await user.save();
+  
+  return user;
+};
+
 
 module.exports = {
   createUser,
@@ -86,4 +121,6 @@ module.exports = {
   getUserByEmail,
   updateUserById,
   deleteUserById,
+  getPublicTeachers,
+  changePassword,
 };

@@ -7,3 +7,4 @@ module.exports.attemptController = require('./attempt.controller');
 module.exports.qnaController = require('./qna.controller');
 module.exports.analyticsController = require('./analytics.controller');
 module.exports.dashboardController = require('./dashboard.controller');
+module.exports.successStoryController = require('./successStory.controller');

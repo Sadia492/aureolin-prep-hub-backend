@@ -1,3 +1,4 @@
+// backend/src/services/course.service.js
 const httpStatus = require('http-status').default;
 const { Course, User } = require('../models');
 const ApiError = require('../utils/ApiError');
@@ -6,21 +7,37 @@ const createCourse = async (courseBody) => {
   return Course.create(courseBody);
 };
 
-const queryCourses = async (user, filter = {}, options = {}) => {
+// ✅ Fixed: Make user optional and handle both scenarios
+const queryCourses = async (filter = {}, options = {}, user = null) => {
   let queryFilter = { ...filter };
 
-  if (user.role === 'student') {
+  // If user is provided and is a student, filter by enrolled courses
+  if (user && user.role === 'student') {
     queryFilter = {
       ...queryFilter,
-      $or: [
-        { students: user.id },
-      ],
+      students: user.id,
     };
   }
 
-  return Course.find(queryFilter)
-    .populate('createdBy', 'name email role')
-    .populate('students', 'name email');
+  // If no options provided, use find()
+  if (!options.limit && !options.page) {
+    return Course.find(queryFilter)
+      .populate('createdBy', 'name email role')
+      .populate('students', 'name email')
+      .sort({ createdAt: -1 });
+  }
+
+  // Otherwise use paginate
+  const result = await Course.paginate(queryFilter, {
+    ...options,
+    populate: [
+      { path: 'createdBy', select: 'name email role' },
+      { path: 'students', select: 'name email' },
+    ],
+    sort: options.sortBy ? { [options.sortBy.split(':')[0]]: options.sortBy.split(':')[1] === 'desc' ? -1 : 1 } : { createdAt: -1 },
+  });
+
+  return result;
 };
 
 const getCourseById = async (courseId) => {

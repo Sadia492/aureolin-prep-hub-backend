@@ -5,3 +5,4 @@ module.exports.examValidation = require('./exam.validation');
 module.exports.questionValidation = require('./question.validation');
 module.exports.attemptValidation = require('./attempt.validation');
 module.exports.qnaValidation = require('./qna.validation');
+module.exports.successStoryValidation = require('./successStory.validation');
