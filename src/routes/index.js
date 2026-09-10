@@ -9,6 +9,7 @@ const qnaRoute = require('./qna.route');
 const analyticsRoute = require('./analytics.route');
 const dashboardRoute = require('./dashboard.route');
 const successStoryRoute = require('./successStory.route');
+const materialRoute = require('./material.route');
 
 const router = express.Router();
 
@@ -52,6 +53,10 @@ const defaultRoutes = [
   {
     path: '/success-stories',
     route: successStoryRoute,
+  },
+  {
+    path: '/materials',
+    route: materialRoute,
   },
 ];
 

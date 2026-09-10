@@ -6,3 +6,4 @@ module.exports.Question = require('./question.model');
 module.exports.Attempt = require('./attempt.model');
 module.exports.QnA = require('./qna.model');    
 module.exports.SuccessStory = require('./successStory.model');
+module.exports.Material = require('./material.model');

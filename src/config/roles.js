@@ -9,6 +9,7 @@ const allRoles = {
     'createQnAs',
     'getQnAs',
     'getDashboard',
+    'getMaterials',
   ],
   teacher: [
     'getUsers',
@@ -24,6 +25,8 @@ const allRoles = {
     'getAnalytics',
     'getDashboard',
      'getSuccessStories',
+     'getMaterials',
+     'manageMaterials',
   ],
   admin: [
     'getUsers',
@@ -42,6 +45,7 @@ const allRoles = {
     'getAnalytics',
     'getDashboard',
     'getSuccessStories', 'manageSuccessStories', // ✅ Added
+    'getMaterials', 'manageMaterials', // ✅ Added
   ],
 };
 

@@ -6,3 +6,4 @@ module.exports.questionValidation = require('./question.validation');
 module.exports.attemptValidation = require('./attempt.validation');
 module.exports.qnaValidation = require('./qna.validation');
 module.exports.successStoryValidation = require('./successStory.validation');
+module.exports.materialValidation = require('./material.validation');

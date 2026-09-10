@@ -1,3 +1,4 @@
+// backend/src/utils/fileUploader.js
 const multer = require('multer');
 const path = require('path');
 const { v2: cloudinary } = require('cloudinary');
@@ -16,30 +17,59 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage: storage });
+// ✅ File filter — only PDF + images
+const fileFilter = (req, file, cb) => {
+  const allowedMimes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+  ];
 
-const uploadToCloudinary = async (file) => {
-  // Configuration
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PDF and image files are allowed'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+});
+
+// ✅ Configure once
+const configureCloudinary = () => {
   cloudinary.config({
     cloud_name: config.cloudinary.cloudName,
     api_key: config.cloudinary.apiKey,
     api_secret: config.cloudinary.apiSecret,
   });
+};
+
+const uploadToCloudinary = async (file, folder = 'aureolin-materials') => {
+  configureCloudinary();
 
   try {
-    // Upload an image
+    // ✅ PDFs need resource_type: 'raw'
+    const isPdf = file.mimetype === 'application/pdf';
+    const resourceType = isPdf ? 'raw' : 'image';
+
     const uploadResult = await cloudinary.uploader.upload(file.path, {
       public_id: path.parse(file.filename).name,
-      folder: 'taskflow-attachments',
+      folder: folder,
+      resource_type: resourceType,
     });
-    
-    // Remove file from local storage after upload
+
+    // Remove local temp file
     await fs.remove(file.path);
-    
+
     return uploadResult;
   } catch (error) {
     console.error('Cloudinary upload error:', error);
-    // Attempt to remove local file even if upload fails
     if (await fs.pathExists(file.path)) {
       await fs.remove(file.path);
     }
@@ -47,9 +77,23 @@ const uploadToCloudinary = async (file) => {
   }
 };
 
+// ✅ Delete from Cloudinary
+const deleteFromCloudinary = async (publicId, resourceType = 'image') => {
+  configureCloudinary();
+  try {
+    return await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType,
+    });
+  } catch (error) {
+    console.error('Cloudinary delete error:', error);
+    throw error;
+  }
+};
+
 const fileUploader = {
   upload,
   uploadToCloudinary,
+  deleteFromCloudinary,
 };
 
 module.exports = fileUploader;
