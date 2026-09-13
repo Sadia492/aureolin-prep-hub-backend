@@ -2,20 +2,10 @@
 const multer = require('multer');
 const path = require('path');
 const { v2: cloudinary } = require('cloudinary');
-const fs = require('fs-extra');
 const config = require('../config/config');
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = path.join(process.cwd(), 'uploads');
-    fs.ensureDirSync(uploadPath);
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
+// ✅ MEMORY storage — no disk writes, works everywhere
+const storage = multer.memoryStorage();
 
 // ✅ File filter — only PDF + images
 const fileFilter = (req, file, cb) => {
@@ -36,13 +26,24 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
+  storage,
+  fileFilter,
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
 });
 
 // ✅ Configure once
 const configureCloudinary = () => {
+  // Fail fast with a clear message if env vars are missing
+  if (
+    !config.cloudinary?.cloudName ||
+    !config.cloudinary?.apiKey ||
+    !config.cloudinary?.apiSecret
+  ) {
+    throw new Error(
+      'Cloudinary credentials missing. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.'
+    );
+  }
+
   cloudinary.config({
     cloud_name: config.cloudinary.cloudName,
     api_key: config.cloudinary.apiKey,
@@ -50,31 +51,43 @@ const configureCloudinary = () => {
   });
 };
 
+/**
+ * Upload file to Cloudinary using a stream (works with memory storage).
+ * @param {Express.Multer.File} file
+ * @param {string} folder — Cloudinary folder
+ * @returns {Promise<object>} Cloudinary upload result
+ */
 const uploadToCloudinary = async (file, folder = 'aureolin-materials') => {
   configureCloudinary();
 
-  try {
-    // ✅ PDFs need resource_type: 'raw'
-    const isPdf = file.mimetype === 'application/pdf';
-    const resourceType = isPdf ? 'raw' : 'image';
-
-    const uploadResult = await cloudinary.uploader.upload(file.path, {
-      public_id: path.parse(file.filename).name,
-      folder: folder,
-      resource_type: resourceType,
-    });
-
-    // Remove local temp file
-    await fs.remove(file.path);
-
-    return uploadResult;
-  } catch (error) {
-    console.error('Cloudinary upload error:', error);
-    if (await fs.pathExists(file.path)) {
-      await fs.remove(file.path);
-    }
-    throw error;
+  if (!file?.buffer) {
+    throw new Error('uploadToCloudinary: file.buffer is required (use memoryStorage).');
   }
+
+  // ✅ PDFs need resource_type: 'raw'
+  const isPdf = file.mimetype === 'application/pdf';
+  const resourceType = isPdf ? 'raw' : 'image';
+
+  return await new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: resourceType,
+        // Keep the file extension so PDFs open in browser
+        use_filename: true,
+        unique_filename: true,
+      },
+      (error, result) => {
+        if (error) {
+          console.error('Cloudinary upload error:', error);
+          return reject(error);
+        }
+        resolve(result);
+      }
+    );
+
+    stream.end(file.buffer);
+  });
 };
 
 // ✅ Delete from Cloudinary
