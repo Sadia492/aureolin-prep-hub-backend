@@ -12,5 +12,15 @@ router.get('/course-stats', auth('getAnalytics'), analyticsController.getCourseS
 router.get('/question-bank', auth('getAnalytics'), analyticsController.getQuestionBankStats);
 router.get('/teacher-stats', auth('getAnalytics'), analyticsController.getTeacherStats);
 router.get('/student-stats', auth('getAnalytics'), analyticsController.getStudentStats);
+router.get(
+  '/admin/subject-performance',
+  auth('getAnalytics'),
+  analyticsController.getAdminSubjectWisePerformance
+);
 
+router.get(
+  '/admin/exam-results',
+  auth('getAnalytics'),
+  analyticsController.getAdminExamResults
+);
 module.exports = router;

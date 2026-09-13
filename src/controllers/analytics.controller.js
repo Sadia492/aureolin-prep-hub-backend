@@ -35,6 +35,18 @@ const getStudentStats = catchAsync(async (req, res) => {
   const data = await analyticsService.getStudentStats(req.user.id);
   res.send(new ApiResponse(httpStatus.OK, data, 'Student stats'));
 });
+// ✅ Add these two
+const getAdminSubjectWisePerformance = catchAsync(async (req, res) => {
+  const data = await analyticsService.getAdminSubjectWisePerformance();
+  res.send(new ApiResponse(httpStatus.OK, data, 'Admin subject-wise performance'));
+});
+
+const getAdminExamResults = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 20;
+  const data = await analyticsService.getAdminExamResults({ page, limit });
+  res.send(new ApiResponse(httpStatus.OK, data, 'Admin exam results'));
+});
 
 module.exports = {
   getAttemptAccuracyTrend,
@@ -44,4 +56,6 @@ module.exports = {
   getQuestionBankStats,
   getTeacherStats,
   getStudentStats,
+  getAdminSubjectWisePerformance,
+  getAdminExamResults,
 };

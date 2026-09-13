@@ -383,6 +383,118 @@ const getStudentStats = async (studentId) => {
   };
 };
 
+// backend/src/services/analytics.service.js
+
+// ✅ For the bar chart: "সাবজেক্টভিত্তিক গড় স্কোর" (all students, all exams)
+const getAdminSubjectWisePerformance = async () => {
+  return Attempt.aggregate([
+    { $match: { status: 'submitted' } },
+    { $unwind: '$subjectWise' },
+    {
+      $group: {
+        _id: '$subjectWise.subject',
+        totalScore: { $sum: '$subjectWise.score' },
+        totalMarks: { $sum: '$subjectWise.totalMarks' },
+        totalCorrect: { $sum: '$subjectWise.correct' },
+        totalWrong: { $sum: '$subjectWise.wrong' },
+        totalUnanswered: { $sum: '$subjectWise.unanswered' },
+        attemptCount: { $sum: 1 },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        subject: '$_id',
+        avgScore: {
+          $cond: [
+            { $eq: ['$attemptCount', 0] },
+            0,
+            { $round: [{ $divide: ['$totalScore', '$attemptCount'] }, 2] },
+          ],
+        },
+        avgAccuracy: {
+          $cond: [
+            { $eq: [{ $add: ['$totalCorrect', '$totalWrong'] }, 0] },
+            0,
+            {
+              $round: [
+                {
+                  $multiply: [
+                    { $divide: ['$totalCorrect', { $add: ['$totalCorrect', '$totalWrong'] }] },
+                    100,
+                  ],
+                },
+                2,
+              ],
+            },
+          ],
+        },
+      },
+    },
+    { $sort: { avgScore: -1 } },
+  ]);
+};
+
+// ✅ For the table: exam-wise results summary
+const getAdminExamResults = async ({ page = 1, limit = 20 } = {}) => {
+  const skip = (page - 1) * limit;
+
+  const pipeline = [
+    { $match: { status: 'submitted' } },
+    {
+      $group: {
+        _id: '$exam',
+        maxScore: { $max: '$score' },
+        avgScore: { $avg: '$score' },
+        avgCorrect: { $avg: '$correct' },
+        avgAccuracy: { $avg: '$accuracy' },
+        participants: { $sum: 1 },
+        passedCount: { $sum: { $cond: ['$isPassed', 1, 0] } },
+      },
+    },
+    {
+      $lookup: {
+        from: 'exams',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'examDoc',
+      },
+    },
+    { $unwind: '$examDoc' },
+    {
+      $project: {
+        _id: 0,
+        examId: '$_id',
+        name: '$examDoc.title',
+        unit: '$examDoc.unit',
+        totalMarks: '$examDoc.totalMarks',
+        scheduledAt: '$examDoc.scheduledAt',
+        maxScore: { $round: ['$maxScore', 2] },
+        avgScore: { $round: ['$avgScore', 2] },
+        avgCorrect: { $round: ['$avgCorrect', 2] },
+        avgAccuracy: { $round: ['$avgAccuracy', 2] },
+        participants: 1,
+        passedCount: 1,
+      },
+    },
+    { $sort: { scheduledAt: -1 } },
+    { $skip: skip },
+    { $limit: limit },
+  ];
+
+  const [rows, totalAgg] = await Promise.all([
+    Attempt.aggregate(pipeline),
+    Attempt.aggregate([
+      { $match: { status: 'submitted' } },
+      { $group: { _id: '$exam' } },
+      { $count: 'total' },
+    ]),
+  ]);
+
+  const total = totalAgg[0]?.total ?? 0;
+  return { rows, total, page, limit, totalPages: Math.ceil(total / limit) };
+};
+
 module.exports = {
   getAttemptAccuracyTrend,
   getSubjectWisePerformance,
@@ -391,4 +503,6 @@ module.exports = {
   getQuestionBankStats,
   getTeacherStats,
   getStudentStats,
+  getAdminSubjectWisePerformance,
+  getAdminExamResults,
 };
