@@ -35,6 +35,13 @@ router.post(
   validate(examValidation.submitExam),
   examController.submitExam
 );
+// backend/src/routes/exam.route.js — add:
+
+router.post(
+  '/:examId/save-draft',
+  auth('takeExams'),
+  examController.saveDraft
+);
 
 // ✅ Standard CRUD
 router

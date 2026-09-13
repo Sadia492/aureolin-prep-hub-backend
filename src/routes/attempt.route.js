@@ -1,46 +1,14 @@
 // backend/src/routes/attempt.route.js
 const express = require('express');
 const auth = require('../middleware/auth');
-const validate = require('../middleware/validate');
-const attemptValidation = require('../validations/attempt.validation');
 const attemptController = require('../controllers/attempt.controller');
 
 const router = express.Router();
 
-// ✅ My attempts — MUST be before /:attemptId
-router.get(
-  '/my-attempts',
-  auth(),
-  (req, res, next) => {
-    req.params.studentId = req.user.id;
-    next();
-  },
-  attemptController.getAttemptsByStudent
-);
+// ✅ 1. My attempts — MUST be before /:attemptId
+router.get('/my-attempts', auth(), attemptController.getAttempts);
 
-router
-  .route('/')
-  .post(
-    auth('createAttempts'),
-    validate(attemptValidation.createAttempt),
-    attemptController.createAttempt
-  )
-  .get(
-    auth('getAttempts'),
-    attemptController.getAttempts
-  );
-
-router
-  .route('/:attemptId')
-  .get(
-    auth('getAttempts'),
-    attemptController.getAttempt
-  )
-  .delete(
-    auth('manageAttempts'),
-    attemptController.deleteAttempt
-  );
-
+// ✅ 2. Static sub-routes — MUST be before /:attemptId
 router.get(
   '/exam/:examId',
   auth('getAttempts'),
@@ -52,5 +20,14 @@ router.get(
   auth('getAttempts'),
   attemptController.getAttemptsByStudent
 );
+
+// ✅ 3. List all attempts (admin/teacher)
+router.get('/', auth('getAttempts'), attemptController.getAttempts);
+
+// ✅ 4. Dynamic :attemptId routes — MUST be LAST
+router
+  .route('/:attemptId')
+  .get(auth('getAttempts'), attemptController.getAttempt)
+  .delete(auth('manageAttempts'), attemptController.deleteAttempt);
 
 module.exports = router;

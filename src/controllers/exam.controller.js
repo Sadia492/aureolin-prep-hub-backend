@@ -66,6 +66,14 @@ const submitExam = catchAsync(async (req, res) => {
     new ApiResponse(httpStatus.CREATED, attempt, 'Exam submitted successfully')
   );
 });
+const saveDraft = catchAsync(async (req, res) => {
+  const data = await examService.saveDraft(
+    req.params.examId,
+    req.user.id,
+    req.body
+  );
+  res.send(new ApiResponse(httpStatus.OK, data, 'Draft saved'));
+});
 
 module.exports = {
   createExam,
@@ -75,4 +83,5 @@ module.exports = {
   deleteExam,
   startExam,
   submitExam,
+  saveDraft,
 };

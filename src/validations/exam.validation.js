@@ -35,7 +35,7 @@ const createExam = {
     negativeMark: Joi.number().min(0).default(0.25),
     passMarks: Joi.number().min(0).default(24),
     englishMinMarks: Joi.number().min(0).default(5),
-    requiredOptionalCount: Joi.number().integer().min(1).default(2),
+    requiredOptionalCount: Joi.number().integer().min(1).default(1),
     scheduledAt: Joi.date().iso().required(),
     isPublished: Joi.boolean().default(false),
   }),

@@ -10,7 +10,7 @@ const analyticsRoute = require('./analytics.route');
 const dashboardRoute = require('./dashboard.route');
 const successStoryRoute = require('./successStory.route');
 const materialRoute = require('./material.route');
-
+const uploadRoute = require('./upload.route');
 const router = express.Router();
 
 const defaultRoutes = [
@@ -57,11 +57,17 @@ const defaultRoutes = [
   {
     path: '/materials',
     route: materialRoute,
-  }
+  },
+  {
+    path: '/uploads',
+    route: uploadRoute,
+  },
 ];
 
 defaultRoutes.forEach((route) => {
   router.use(route.path, route.route);
 });
+
+
 
 module.exports = router;

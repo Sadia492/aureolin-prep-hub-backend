@@ -62,7 +62,7 @@ const examSchema = new mongoose.Schema(
     negativeMark: { type: Number, default: 0.25, min: 0 },
     passMarks: { type: Number, default: 24, min: 0 },
     englishMinMarks: { type: Number, default: 5, min: 0 },
-    requiredOptionalCount: { type: Number, default: 2, min: 1 },
+    requiredOptionalCount: { type: Number, default: 1, min: 1 },
 
     scheduledAt: { type: Date, required: true },
     isPublished: { type: Boolean, default: false },

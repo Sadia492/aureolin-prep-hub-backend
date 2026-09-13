@@ -5,18 +5,7 @@ const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const { attemptService } = require('../services');
 
-const createAttempt = catchAsync(async (req, res) => {
-  const attempt = await attemptService.createAttempt({
-    exam: req.body.exam,
-    answers: req.body.answers || [],
-    chosenOptionalSubjects: req.body.chosenOptionalSubjects || [],
-    student: req.user.role === 'student' ? req.user.id : req.body.student,
-  });
-
-  res.status(httpStatus.CREATED).send(
-    new ApiResponse(httpStatus.CREATED, attempt, 'Attempt submitted successfully')
-  );
-});
+// ❌ REMOVED: createAttempt
 
 const getAttempts = catchAsync(async (req, res) => {
   const attempts = await attemptService.queryAttempts(req.user);
@@ -30,7 +19,6 @@ const getAttempt = catchAsync(async (req, res) => {
     throw new ApiError(httpStatus.NOT_FOUND, 'Attempt not found');
   }
 
-  // Students can only view their own attempt
   if (
     req.user.role === 'student' &&
     attempt.student._id.toString() !== req.user.id
@@ -57,7 +45,7 @@ const deleteAttempt = catchAsync(async (req, res) => {
 });
 
 module.exports = {
-  createAttempt,
+  // ❌ createAttempt removed
   getAttempts,
   getAttempt,
   getAttemptsByExam,
