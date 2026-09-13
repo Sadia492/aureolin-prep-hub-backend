@@ -27,6 +27,14 @@ const getQuestionBankStats = catchAsync(async (req, res) => {
   const data = await analyticsService.getQuestionBankStats();
   res.send(new ApiResponse(httpStatus.OK, data, 'Question bank stats'));
 });
+const getTeacherStats = catchAsync(async (req, res) => {
+  const data = await analyticsService.getTeacherStats(req.user.id);
+  res.send(new ApiResponse(httpStatus.OK, data, 'Teacher stats'));
+});
+const getStudentStats = catchAsync(async (req, res) => {
+  const data = await analyticsService.getStudentStats(req.user.id);
+  res.send(new ApiResponse(httpStatus.OK, data, 'Student stats'));
+});
 
 module.exports = {
   getAttemptAccuracyTrend,
@@ -34,4 +42,6 @@ module.exports = {
   getExamLeaderboard,
   getCourseStats,
   getQuestionBankStats,
+  getTeacherStats,
+  getStudentStats,
 };

@@ -11,6 +11,7 @@ const allRoles = {
     'getQnAs',
     'getDashboard',
     'getMaterials',
+    'getAnalytics',
   ],
   teacher: [
     'getUsers',
@@ -28,6 +29,9 @@ const allRoles = {
      'getSuccessStories',
      'getMaterials',
      'manageMaterials',
+     'manageSuccessStories',
+     'getSuccessStories',
+     'getAnalytics',
   ],
   admin: [
     'getUsers',
@@ -47,6 +51,7 @@ const allRoles = {
     'getDashboard',
     'getSuccessStories', 'manageSuccessStories', // ✅ Added
     'getMaterials', 'manageMaterials', // ✅ Added
+    'getAnalytics',
   ],
 };
 

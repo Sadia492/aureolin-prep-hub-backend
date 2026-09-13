@@ -10,5 +10,7 @@ router.get('/leaderboard', auth('getAnalytics'), analyticsController.getExamLead
 router.get('/leaderboard/:examId', auth('getAnalytics'), analyticsController.getExamLeaderboard);
 router.get('/course-stats', auth('getAnalytics'), analyticsController.getCourseStats);
 router.get('/question-bank', auth('getAnalytics'), analyticsController.getQuestionBankStats);
+router.get('/teacher-stats', auth('getAnalytics'), analyticsController.getTeacherStats);
+router.get('/student-stats', auth('getAnalytics'), analyticsController.getStudentStats);
 
 module.exports = router;
