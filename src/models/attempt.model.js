@@ -7,18 +7,18 @@ const attemptSchema = new mongoose.Schema(
     student: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     exam: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', required: true },
 
-    // ✅ NEW: attempt lifecycle
+    // ✅ attempt lifecycle
     status: {
       type: String,
       enum: ['live', 'submitted'],
       default: 'live',
     },
     startedAt: { type: Date, default: Date.now },
-    submittedAt: { type: Date },   // ✅ only set on real submit
+    submittedAt: { type: Date }, // ✅ only set on real submit
 
     chosenOptionalSubjects: [{ type: String }],
 
-    // ✅ NEW: draft answers (autosaved during the exam)
+    // ✅ draft answers (autosaved during the exam)
     draftAnswers: [
       {
         question: { type: mongoose.Schema.Types.ObjectId },
@@ -26,7 +26,17 @@ const attemptSchema = new mongoose.Schema(
       },
     ],
 
-    // Final graded answers (populated on submit)
+    // ✅ draft written answers (autosaved during the exam)
+    draftWrittenAnswers: [
+      {
+        question: { type: mongoose.Schema.Types.ObjectId },
+        subject: { type: String },
+        answerText: { type: String, default: '' },
+        answerImages: { type: [String], default: [] },
+      },
+    ],
+
+    // Final graded MCQ answers (populated on submit)
     answers: [
       {
         question: { type: mongoose.Schema.Types.ObjectId },
@@ -40,6 +50,25 @@ const attemptSchema = new mongoose.Schema(
       },
     ],
 
+    // ✅ Final written answers (snapshot on submit; graded later by teacher)
+    writtenAnswers: [
+      {
+        question: { type: mongoose.Schema.Types.ObjectId },
+        subject: { type: String },
+        questionText: { type: String },
+        questionImages: { type: [String], default: [] },
+        answerText: { type: String, default: '' },
+        answerImages: { type: [String], default: [] },
+        maxMarks: { type: Number, default: 0 },
+        awardedMarks: { type: Number, default: null },
+        feedback: { type: String, default: '' },
+        graded: { type: Boolean, default: false },
+        gradedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        gradedAt: { type: Date, default: null },
+      },
+    ],
+
+    // MCQ scoring
     score: { type: Number, default: 0 },
     correct: { type: Number, default: 0 },
     wrong: { type: Number, default: 0 },
@@ -57,6 +86,13 @@ const attemptSchema = new mongoose.Schema(
       },
     ],
 
+    // ✅ Written scoring (populated by teacher grading)
+    writtenTotalMarks: { type: Number, default: 0 },
+    writtenAwardedMarks: { type: Number, default: 0 },
+    writtenGraded: { type: Boolean, default: false },
+    writtenPassed: { type: Boolean, default: null },
+
+    // Result flags
     isPassed: { type: Boolean },
     passedOverall: { type: Boolean },
     passedEnglish: { type: Boolean },

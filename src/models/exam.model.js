@@ -2,13 +2,16 @@
 const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
 
-// ✅ Question as subdocument
-// backend/src/models/exam.model.js — inside questionSubSchema
+// ✅ MCQ Question subdocument
 const questionSubSchema = new mongoose.Schema(
   {
     question: { type: String, required: true, trim: true },
-    images: { type: [String], default: [] },   // ✅ Add this
-    options: { type: [String], required: true, validate: (v) => v.length === 4 },
+    images: { type: [String], default: [] },
+    options: {
+      type: [String],
+      required: true,
+      validate: (v) => v.length === 4,
+    },
     correctAnswer: { type: Number, required: true, min: 0, max: 3 },
     explanation: { type: String, default: '', trim: true },
     subject: { type: String, required: true, trim: true },
@@ -18,7 +21,25 @@ const questionSubSchema = new mongoose.Schema(
   { _id: true, timestamps: false }
 );
 
-// ✅ Section as subdocument
+// ✅ Written Question subdocument (teacher types; student uploads images)
+const writtenQuestionSubSchema = new mongoose.Schema(
+  {
+    question: { type: String, required: true, trim: true },
+    images: { type: [String], default: [] }, // reference images from admin
+    subject: {
+      type: String,
+      required: true,
+      trim: true,
+      enum: ['Bangla', 'English', 'ICT', 'Mathematics', 'Statistics', 'Economics'],
+    },
+    marks: { type: Number, default: 5, min: 0 },
+    order: { type: Number, default: 0 },
+    modelAnswer: { type: String, default: '', trim: true }, // optional rubric
+  },
+  { _id: true, timestamps: false }
+);
+
+// ✅ Section subdocument
 const sectionSubSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -50,13 +71,21 @@ const examSchema = new mongoose.Schema(
       default: [],
     },
 
-    // ✅ Questions as subdocuments
+    // ✅ MCQ questions
     questions: {
       type: [questionSubSchema],
       default: [],
     },
 
-    // Exam settings
+    // ✅ Written part config
+    hasWrittenPart: { type: Boolean, default: false },
+    writtenQuestions: { type: [writtenQuestionSubSchema], default: [] },
+    writtenDuration: { type: Number, default: 30, min: 0 },
+    writtenTotalMarks: { type: Number, default: 20, min: 0 },
+    writtenPassMarks: { type: Number, default: 8, min: 0 },
+    writtenSeparatePass: { type: Boolean, default: true },
+
+    // MCQ settings
     duration: { type: Number, default: 45, min: 1 },
     totalMarks: { type: Number, default: 60, min: 0 },
     negativeMark: { type: Number, default: 0.25, min: 0 },

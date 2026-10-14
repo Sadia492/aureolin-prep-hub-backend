@@ -5,11 +5,11 @@ const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const { attemptService } = require('../services');
 
-// ❌ REMOVED: createAttempt
-
 const getAttempts = catchAsync(async (req, res) => {
   const attempts = await attemptService.queryAttempts(req.user);
-  res.send(new ApiResponse(httpStatus.OK, attempts, 'Attempts retrieved successfully'));
+  res.send(
+    new ApiResponse(httpStatus.OK, attempts, 'Attempts retrieved successfully')
+  );
 });
 
 const getAttempt = catchAsync(async (req, res) => {
@@ -26,17 +26,25 @@ const getAttempt = catchAsync(async (req, res) => {
     throw new ApiError(httpStatus.FORBIDDEN, 'Not authorized');
   }
 
-  res.send(new ApiResponse(httpStatus.OK, attempt, 'Attempt retrieved successfully'));
+  res.send(
+    new ApiResponse(httpStatus.OK, attempt, 'Attempt retrieved successfully')
+  );
 });
 
 const getAttemptsByExam = catchAsync(async (req, res) => {
   const attempts = await attemptService.getAttemptsByExam(req.params.examId);
-  res.send(new ApiResponse(httpStatus.OK, attempts, 'Attempts for exam retrieved'));
+  res.send(
+    new ApiResponse(httpStatus.OK, attempts, 'Attempts for exam retrieved')
+  );
 });
 
 const getAttemptsByStudent = catchAsync(async (req, res) => {
-  const attempts = await attemptService.getAttemptsByStudent(req.params.studentId);
-  res.send(new ApiResponse(httpStatus.OK, attempts, 'Attempts for student retrieved'));
+  const attempts = await attemptService.getAttemptsByStudent(
+    req.params.studentId
+  );
+  res.send(
+    new ApiResponse(httpStatus.OK, attempts, 'Attempts for student retrieved')
+  );
 });
 
 const deleteAttempt = catchAsync(async (req, res) => {
@@ -44,11 +52,23 @@ const deleteAttempt = catchAsync(async (req, res) => {
   res.status(httpStatus.NO_CONTENT).send();
 });
 
+// ✅ Teacher: grade written part
+const gradeWritten = catchAsync(async (req, res) => {
+  const attempt = await attemptService.gradeWrittenAttempt(
+    req.params.attemptId,
+    req.body.grades, // [{ question, awardedMarks, feedback }]
+    req.user
+  );
+  res.send(
+    new ApiResponse(httpStatus.OK, attempt, 'Written graded successfully')
+  );
+});
+
 module.exports = {
-  // ❌ createAttempt removed
   getAttempts,
   getAttempt,
   getAttemptsByExam,
   getAttemptsByStudent,
   deleteAttempt,
+  gradeWritten,
 };

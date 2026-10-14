@@ -10,9 +10,11 @@ const createExam = catchAsync(async (req, res) => {
     ...req.body,
     createdBy: req.user.id,
   });
-  res.status(httpStatus.CREATED).send(
-    new ApiResponse(httpStatus.CREATED, exam, 'Exam created successfully')
-  );
+  res
+    .status(httpStatus.CREATED)
+    .send(
+      new ApiResponse(httpStatus.CREATED, exam, 'Exam created successfully')
+    );
 });
 
 const getExams = catchAsync(async (req, res) => {
@@ -30,7 +32,9 @@ const getExams = catchAsync(async (req, res) => {
   };
 
   const exams = await examService.queryExams(req.user, filter, options);
-  res.send(new ApiResponse(httpStatus.OK, exams, 'Exams retrieved successfully'));
+  res.send(
+    new ApiResponse(httpStatus.OK, exams, 'Exams retrieved successfully')
+  );
 });
 
 const getExam = catchAsync(async (req, res) => {
@@ -38,12 +42,16 @@ const getExam = catchAsync(async (req, res) => {
   if (!exam) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found');
   }
-  res.send(new ApiResponse(httpStatus.OK, exam, 'Exam retrieved successfully'));
+  res.send(
+    new ApiResponse(httpStatus.OK, exam, 'Exam retrieved successfully')
+  );
 });
 
 const updateExam = catchAsync(async (req, res) => {
   const exam = await examService.updateExamById(req.params.examId, req.body);
-  res.send(new ApiResponse(httpStatus.OK, exam, 'Exam updated successfully'));
+  res.send(
+    new ApiResponse(httpStatus.OK, exam, 'Exam updated successfully')
+  );
 });
 
 const deleteExam = catchAsync(async (req, res) => {
@@ -62,10 +70,17 @@ const submitExam = catchAsync(async (req, res) => {
     req.user.id,
     req.body
   );
-  res.status(httpStatus.CREATED).send(
-    new ApiResponse(httpStatus.CREATED, attempt, 'Exam submitted successfully')
-  );
+  res
+    .status(httpStatus.CREATED)
+    .send(
+      new ApiResponse(
+        httpStatus.CREATED,
+        attempt,
+        'Exam submitted successfully'
+      )
+    );
 });
+
 const saveDraft = catchAsync(async (req, res) => {
   const data = await examService.saveDraft(
     req.params.examId,
@@ -73,6 +88,38 @@ const saveDraft = catchAsync(async (req, res) => {
     req.body
   );
   res.send(new ApiResponse(httpStatus.OK, data, 'Draft saved'));
+});
+
+// ✅ Teacher grades written part manually
+const gradeWritten = catchAsync(async (req, res) => {
+  const attempt = await examService.gradeWrittenAttempt(
+    req.params.attemptId,
+    req.body.grades, // [{ question, awardedMarks, feedback }]
+    req.user
+  );
+  res.send(
+    new ApiResponse(httpStatus.OK, attempt, 'Written graded successfully')
+  );
+});
+
+// ✅ Teacher: list attempts for grading
+const getAttempts = catchAsync(async (req, res) => {
+  const filter = {};
+  if (req.query.examId) filter.exam = req.query.examId;
+  if (req.query.studentId) filter.student = req.query.studentId;
+  if (req.query.status) filter.status = req.query.status;
+  if (req.query.writtenGraded !== undefined) {
+    filter.writtenGraded = req.query.writtenGraded === 'true';
+  }
+
+  const options = {
+    limit: req.query.limit ? parseInt(req.query.limit) : undefined,
+  };
+
+  const attempts = await examService.queryAttempts(filter, options);
+  res.send(
+    new ApiResponse(httpStatus.OK, attempts, 'Attempts retrieved successfully')
+  );
 });
 
 module.exports = {
@@ -84,4 +131,6 @@ module.exports = {
   startExam,
   submitExam,
   saveDraft,
+  gradeWritten,
+  getAttempts,
 };

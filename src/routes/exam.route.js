@@ -7,7 +7,7 @@ const examController = require('../controllers/exam.controller');
 
 const router = express.Router();
 
-// ✅ Public/authenticated list & create
+// ===== Exam CRUD =====
 router
   .route('/')
   .post(
@@ -21,7 +21,21 @@ router
     examController.getExams
   );
 
-// ✅ Student actions — MUST come before /:examId
+// ===== Teacher/Admin: Attempts list + grading (BEFORE /:examId) =====
+router.get(
+  '/attempts',
+  auth('manageExams'),
+  examController.getAttempts
+);
+
+router.patch(
+  '/attempts/:attemptId/grade-written',
+  auth('manageExams'),
+  validate(examValidation.gradeWritten),
+  examController.gradeWritten
+);
+
+// ===== Student actions (BEFORE /:examId) =====
 router.get(
   '/:examId/start',
   auth('takeExams'),
@@ -35,15 +49,15 @@ router.post(
   validate(examValidation.submitExam),
   examController.submitExam
 );
-// backend/src/routes/exam.route.js — add:
 
 router.post(
   '/:examId/save-draft',
   auth('takeExams'),
+  validate(examValidation.saveDraft),
   examController.saveDraft
 );
 
-// ✅ Standard CRUD
+// ===== Standard CRUD on /:examId =====
 router
   .route('/:examId')
   .get(

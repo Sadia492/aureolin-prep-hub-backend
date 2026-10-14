@@ -16,48 +16,29 @@ const queryAttempts = async (user, filter = {}) => {
     .populate('student', 'name email role')
     .populate({
       path: 'exam',
-      select: 'title unit totalMarks passMarks duration scheduledAt',
+      select:
+        'title unit totalMarks passMarks duration scheduledAt hasWrittenPart writtenTotalMarks writtenPassMarks writtenSeparatePass',
     })
     .sort({ submittedAt: -1 });
 };
 
 const getAttemptById = async (attemptId) => {
-  console.log('=== getAttemptById CALLED ===', attemptId);
-
   const attempt = await Attempt.findById(attemptId)
     .populate('student', 'name email role background targetUnit')
     .populate({
       path: 'exam',
-      select: 'title unit totalMarks passMarks englishMinMarks negativeMark scheduledAt sections questions',
+      select:
+        'title unit totalMarks passMarks englishMinMarks negativeMark scheduledAt sections questions hasWrittenPart writtenPassMarks writtenSeparatePass writtenTotalMarks',
     });
 
-  if (!attempt) {
-    console.log('=== attempt NOT FOUND ===');
-    return null;
-  }
+  if (!attempt) return null;
+  if (!attempt.exam || !attempt.exam.questions) return attempt;
 
-  console.log('=== attempt found, exam? ===', !!attempt.exam);
-  console.log('=== exam.questions length ===', attempt.exam?.questions?.length);
-
-  if (!attempt.exam || !attempt.exam.questions) {
-    console.log('=== returning early - no exam.questions ===');
-    return attempt;
-  }
-
-  // Manually enrich
+  // Manually enrich MCQ answers with question text/options/explanation
   const exam = attempt.exam;
   const enriched = attempt.answers.map((a) => {
     const qid = a.question.toString();
-    const question = exam.questions.find(
-      (q) => q._id.toString() === qid
-    );
-
-    console.log('Enriching answer:', {
-      qid,
-      questionFound: !!question,
-      explanation: question?.explanation?.substring(0, 30),
-      optionsCount: question?.options?.length,
-    });
+    const question = exam.questions.find((q) => q._id.toString() === qid);
 
     const obj = a.toObject();
 
@@ -77,9 +58,6 @@ const getAttemptById = async (attemptId) => {
     };
   });
 
-  console.log('=== enriched answers[0] ===', JSON.stringify(enriched[0], null, 2));
-
-  // Replace in the document
   attempt.answers = enriched;
   return attempt;
 };
@@ -111,10 +89,75 @@ const deleteAttemptById = async (attemptId) => {
   return attempt;
 };
 
+// ============ ✅ Teacher: Grade written part (manual marks) ============
+
+const gradeWrittenAttempt = async (attemptId, grades, user) => {
+  const attempt = await Attempt.findById(attemptId).populate('exam');
+  if (!attempt) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Attempt not found');
+  }
+
+  const exam = attempt.exam;
+  if (!exam) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found');
+  }
+  if (!exam.hasWrittenPart) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'This exam has no written part');
+  }
+  if (attempt.status !== 'submitted') {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Attempt is not submitted');
+  }
+
+  let awardedTotal = 0;
+
+  attempt.writtenAnswers = attempt.writtenAnswers.map((wa) => {
+    const g = grades.find((x) => String(x.question) === String(wa.question));
+    if (!g) return wa;
+
+    const clamped = Math.max(
+      0,
+      Math.min(wa.maxMarks, Number(g.awardedMarks) || 0)
+    );
+    awardedTotal += clamped;
+
+    return {
+      ...wa.toObject(),
+      awardedMarks: clamped,
+      feedback: g.feedback || '',
+      graded: true,
+      gradedBy: user.id,
+      gradedAt: new Date(),
+    };
+  });
+
+  attempt.writtenAwardedMarks = Math.round(awardedTotal * 100) / 100;
+  attempt.writtenGraded = attempt.writtenAnswers.every((w) => w.graded);
+
+  const writtenPassed =
+    attempt.writtenAwardedMarks >= (exam.writtenPassMarks || 0);
+  attempt.writtenPassed = writtenPassed;
+
+  // Recompute final pass
+  const mcqPassed = attempt.passedOverall && attempt.passedEnglish;
+  attempt.isPassed = exam.writtenSeparatePass
+    ? mcqPassed && writtenPassed
+    : mcqPassed;
+
+  await attempt.save();
+
+  return Attempt.findById(attemptId)
+    .populate('student', 'name email role')
+    .populate(
+      'exam',
+      'title unit hasWrittenPart writtenPassMarks writtenSeparatePass'
+    );
+};
+
 module.exports = {
   queryAttempts,
   getAttemptById,
   getAttemptsByExam,
   getAttemptsByStudent,
   deleteAttemptById,
+  gradeWrittenAttempt,
 };
