@@ -10,7 +10,7 @@ const router = express.Router();
 
 router.post(
   '/image',
-  auth('manageExams'),   // only admin/teacher
+  auth(),   // only admin/teacher
   fileUploader.upload.single('image'),
   catchAsync(async (req, res) => {
     if (!req.file) {

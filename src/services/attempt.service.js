@@ -10,6 +10,8 @@ const queryAttempts = async (user, filter = {}) => {
 
   if (user.role === 'student') {
     queryFilter.student = user.id;
+    // ✅ Only count real submitted attempts as "completed"
+    queryFilter.status = 'submitted';
   }
 
   return Attempt.find(queryFilter)

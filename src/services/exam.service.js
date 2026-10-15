@@ -73,6 +73,7 @@ const queryExams = async (user, filter = {}, options = {}) => {
 
   if (options.limit) query.limit(options.limit);
 
+  // ✅ No auto-close block — remove it entirely
   return query;
 };
 
@@ -140,17 +141,15 @@ const startExam = async (examId, userId) => {
     throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found');
   }
 
+  // ✅ Only gate: must be published
   if (!exam.isPublished) {
     throw new ApiError(httpStatus.FORBIDDEN, 'Exam is not published yet');
   }
 
   const now = new Date();
-  const examWithWrittenDuration = examForDeadline(exam);
 
-  const globalDeadline = getExamDeadline(examWithWrittenDuration);
-  if (now > globalDeadline) {
-    throw new ApiError(httpStatus.FORBIDDEN, 'Exam window has closed');
-  }
+  // ✅ Total personal duration = MCQ duration + written duration (if enabled)
+  const totalDurationMin = getExamTotalDurationMin(exam);
 
   let attempt = await Attempt.findOne({ student: userId, exam: examId });
 
@@ -162,11 +161,37 @@ const startExam = async (examId, userId) => {
   }
 
   if (attempt && attempt.status === 'live') {
-    const effectiveDeadline = getEffectiveDeadline(examWithWrittenDuration, attempt);
-    if (now > effectiveDeadline) {
-      throw new ApiError(httpStatus.FORBIDDEN, 'Your time is up for this exam');
+    // ✅ Resume: check only the student's own personal deadline
+    //    personal deadline = attempt.startedAt + totalDuration
+    const personalDeadline = new Date(
+      new Date(attempt.startedAt).getTime() + totalDurationMin * 60 * 1000
+    );
+
+    if (now > personalDeadline) {
+      // Time expired without submitting → mark failed
+      attempt.status = 'submitted';
+      attempt.submittedAt = personalDeadline;
+      attempt.isPassed = false;
+      attempt.passedOverall = false;
+      attempt.passedEnglish = false;
+      attempt.writtenPassed = false;
+      attempt.score = 0;
+      attempt.correct = 0;
+      attempt.wrong = 0;
+      attempt.unanswered = (exam.questions || []).length;
+      attempt.accuracy = 0;
+      attempt.writtenAwardedMarks = 0;
+      attempt.writtenGraded = !exam.hasWrittenPart;
+      await attempt.save();
+
+      throw new ApiError(
+        httpStatus.FORBIDDEN,
+        'Your time is up for this exam'
+      );
     }
+    // Otherwise: resume — personalDeadline is still in the future
   } else {
+    // ✅ First start: create live attempt with startedAt = NOW
     attempt = await Attempt.create({
       student: userId,
       exam: examId,
@@ -177,7 +202,7 @@ const startExam = async (examId, userId) => {
     });
   }
 
-  // Group MCQ questions by subject (strip correct answers)
+  // Group MCQ questions by subject
   const grouped = {};
   exam.questions.forEach((q) => {
     if (!grouped[q.subject]) grouped[q.subject] = [];
@@ -208,10 +233,13 @@ const startExam = async (examId, userId) => {
     });
   }
 
-  const effectiveDeadline = getEffectiveDeadline(examWithWrittenDuration, attempt);
+  // ✅ Remaining seconds = personal deadline − now
+  const personalDeadline = new Date(
+    new Date(attempt.startedAt).getTime() + totalDurationMin * 60 * 1000
+  );
   const remainingSeconds = Math.max(
     0,
-    Math.floor((effectiveDeadline.getTime() - now.getTime()) / 1000)
+    Math.floor((personalDeadline.getTime() - now.getTime()) / 1000)
   );
 
   return {
@@ -228,7 +256,6 @@ const startExam = async (examId, userId) => {
       requiredOptionalCount: exam.requiredOptionalCount,
       sections: exam.sections,
       scheduledAt: exam.scheduledAt,
-      // written config
       hasWrittenPart: exam.hasWrittenPart,
       writtenDuration: exam.writtenDuration,
       writtenTotalMarks: exam.writtenTotalMarks,
@@ -243,6 +270,40 @@ const startExam = async (examId, userId) => {
     questionsBySubject: grouped,
     writtenQuestionsBySubject: groupedWritten,
   };
+};
+
+
+// backend/src/services/exam.service.js — add this helper
+
+const markAttemptFailedIfExpired = async (attempt) => {
+  if (!attempt || attempt.status !== 'live') return attempt;
+
+  const exam = await Exam.findById(attempt.exam);
+  if (!exam) return attempt;
+
+  const examWithWrittenDuration = examForDeadline(exam);
+  const deadline = getEffectiveDeadline(examWithWrittenDuration, attempt);
+
+  const now = new Date();
+  if (now <= deadline) return attempt;
+
+  // Time is up and student never submitted → mark as failed attempt
+  attempt.status = 'submitted'; // counts as final, but FAILED
+  attempt.submittedAt = deadline;
+  attempt.isPassed = false;
+  attempt.passedOverall = false;
+  attempt.passedEnglish = false;
+  attempt.writtenPassed = false;
+  attempt.score = 0;
+  attempt.correct = 0;
+  attempt.wrong = 0;
+  attempt.unanswered = (exam.questions || []).length;
+  attempt.accuracy = 0;
+  attempt.writtenAwardedMarks = 0;
+  attempt.writtenGraded = !exam.hasWrittenPart;
+
+  await attempt.save();
+  return attempt;
 };
 
 // ============ Student: Submit (MCQ auto-graded, written left for teacher) ============
@@ -268,21 +329,6 @@ const submitExam = async (
     .filter((s) => !s.isCompulsory)
     .map((s) => s.name);
 
-  if (chosenOptionalSubjects.length !== exam.requiredOptionalCount) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      `You must choose exactly ${exam.requiredOptionalCount} optional subject(s)`
-    );
-  }
-  const invalid = chosenOptionalSubjects.filter(
-    (s) => !optionalSubjects.includes(s)
-  );
-  if (invalid.length > 0) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      `Invalid optional subjects: ${invalid.join(', ')}`
-    );
-  }
 
   // ===== MCQ grading =====
   let score = 0, correct = 0, wrong = 0, unanswered = 0;
@@ -452,8 +498,13 @@ const saveDraft = async (
     throw new ApiError(httpStatus.BAD_REQUEST, 'No active attempt found');
   }
 
-  const examWithWrittenDuration = examForDeadline(exam);
-  if (new Date() > getEffectiveDeadline(examWithWrittenDuration, attempt)) {
+  // ✅ Personal deadline = startedAt + total duration
+  const totalDurationMin = getExamTotalDurationMin(exam);
+  const personalDeadline = new Date(
+    new Date(attempt.startedAt).getTime() + totalDurationMin * 60 * 1000
+  );
+
+  if (new Date() > personalDeadline) {
     throw new ApiError(httpStatus.FORBIDDEN, 'Time is up');
   }
 
@@ -535,13 +586,17 @@ const gradeWrittenAttempt = async (attemptId, grades, user) => {
 // ============ Query attempts (for teacher grading UI) ============
 
 const queryAttempts = async (filter = {}, options = {}) => {
-  const query = Attempt.find(filter)
-    .populate('student', 'name email')
+  const attempts = await Attempt.find(filter)
+    .populate('student', 'name email role')
     .populate('exam', 'title unit hasWrittenPart writtenGraded')
     .sort({ submittedAt: -1 });
 
-  if (options.limit) query.limit(options.limit);
-  return query;
+  // ✅ Auto-mark expired live attempts as failed
+  await Promise.all(
+    attempts.map((a) => markAttemptFailedIfExpired(a))
+  );
+
+  return attempts;
 };
 
 module.exports = {
@@ -555,4 +610,5 @@ module.exports = {
   saveDraft,
   gradeWrittenAttempt,
   queryAttempts,
+    markAttemptFailedIfExpired,
 };

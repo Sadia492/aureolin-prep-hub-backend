@@ -20,12 +20,20 @@ const auth = (...requiredRights) => async (req, res, next) => {
 
     const payload = jwt.verify(token, config.jwt.secret);
 
-    const user = await User.findById(payload.sub);
-    if (!user) {
-      throw new ApiError(httpStatus.UNAUTHORIZED, 'Please authenticate');
-    }
+const user = await User.findById(payload.sub);
+if (!user) {
+  throw new ApiError(httpStatus.UNAUTHORIZED, 'Please authenticate');
+}
 
-    req.user = user;
+// ✅ Block deactivated accounts even with a valid token
+if (user.isActive === false) {
+  throw new ApiError(
+    httpStatus.FORBIDDEN,
+    'Your account has been deactivated. Please contact an administrator.'
+  );
+}
+
+req.user = user;
 
     if (requiredRights.length) {
       const userRights = roleRights.get(user.role) || [];

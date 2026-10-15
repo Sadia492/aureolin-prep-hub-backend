@@ -16,9 +16,17 @@ const loginUserWithEmailAndPassword = async (email, password) => {
   if (!user || !(await user.isPasswordMatch(password))) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Incorrect email or password');
   }
+
+  // ✅ Block deactivated accounts
+  if (user.isActive === false) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      'Your account has been deactivated. Please contact an administrator.'
+    );
+  }
+
   return user;
 };
-
 /**
  * Logout
  * @param {string} refreshToken
