@@ -90,12 +90,19 @@ const generateAuthTokens = async (user) => {
  * @param {string} email
  * @returns {Promise<string>}
  */
+/**
+ * Generate reset password token.
+ * Returns null if the email doesn't exist (to prevent email enumeration).
+ */
 const generateResetPasswordToken = async (email) => {
   const { userService } = require('./'); // avoid circular dependency
   const user = await userService.getUserByEmail(email);
+
+  // ✅ Silent no-op if user doesn't exist
   if (!user) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'No users found with this email');
+    return null;
   }
+
   const expires = new Date();
   expires.setMinutes(expires.getMinutes() + config.jwt.resetPasswordExpirationMinutes);
   const resetPasswordToken = generateToken(user.id, expires, tokenTypes.RESET_PASSWORD);

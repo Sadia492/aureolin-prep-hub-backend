@@ -2,6 +2,8 @@ const httpStatus = require('http-status').default;
 const catchAsync = require('../utils/catchAsync');
 const { authService, userService, tokenService } = require('../services');
 const ApiResponse = require('../utils/ApiResponse');
+const config = require('../config/config');
+const emailService = require('../services/email.service');
 
 const register = catchAsync(async (req, res) => {
   const user = await userService.createUser(req.body);
@@ -31,9 +33,23 @@ const refreshTokens = catchAsync(async (req, res) => {
 });
 
 const forgotPassword = catchAsync(async (req, res) => {
-  const resetPasswordToken = await tokenService.generateResetPasswordToken(req.body.email);
+  const resetPasswordToken = await tokenService.generateResetPasswordToken(
+    req.body.email
+  );
+
+  // ✅ Only send email if the user exists. Don't leak token in response.
+  if (resetPasswordToken) {
+    const resetUrl = `${config.clientUrl}/reset-password?token=${resetPasswordToken}`;
+    await emailService.sendResetPasswordEmail(req.body.email, resetUrl);
+  }
+
+  // ✅ Same response whether or not the email exists
   res.send(
-    new ApiResponse(httpStatus.OK, { resetPasswordToken }, 'Reset password token generated')
+    new ApiResponse(
+      httpStatus.OK,
+      null,
+      'If that email is registered, a reset link has been sent.'
+    )
   );
 });
 
