@@ -446,6 +446,7 @@ const submitExam = async (
         awardedMarks: null, // teacher will fill
         feedback: '',
         graded: false,
+         modelAnswer: q.modelAnswer || "", // ✅ ADD THIS LINE
       });
     });
   }

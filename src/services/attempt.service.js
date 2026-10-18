@@ -30,9 +30,8 @@ const getAttemptById = async (attemptId) => {
     .populate({
       path: 'exam',
       select:
-        'title unit totalMarks passMarks englishMinMarks negativeMark scheduledAt sections questions hasWrittenPart writtenPassMarks writtenSeparatePass writtenTotalMarks',
+        'title unit totalMarks passMarks englishMinMarks negativeMark scheduledAt sections questions hasWrittenPart writtenPassMarks writtenSeparatePass writtenTotalMarks writtenQuestions', // ✅ ADDED writtenQuestions HERE
     });
-
   if (!attempt) return null;
   if (!attempt.exam || !attempt.exam.questions) return attempt;
 
