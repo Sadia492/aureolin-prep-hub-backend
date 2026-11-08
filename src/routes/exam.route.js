@@ -44,6 +44,13 @@ router.get(
 );
 
 router.post(
+  '/:examId/select-written-unit',
+  auth('takeExams'),
+  validate(examValidation.selectWrittenUnit),
+  examController.selectWrittenUnit
+);
+
+router.post(
   '/:examId/submit',
   auth('takeExams'),
   validate(examValidation.submitExam),

@@ -30,7 +30,13 @@ const writtenQuestionSubSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      enum: ['Bangla', 'English', 'ICT', 'Mathematics', 'Statistics', 'Economics'],
+      enum: [
+        'Bangla', 'English', 'ICT',
+        // A Unit optionals
+        'Accounting', 'Business Organization', 'Economics', 'Statistics', 'Mathematics',
+        // C Unit optionals
+        'Physics', 'Chemistry', 'Biology', 'Higher Math',
+      ],
     },
     marks: { type: Number, default: 5, min: 0 },
     order: { type: Number, default: 0 },
@@ -53,10 +59,11 @@ const examSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
 
+    // Which units this shared exam serves. MCQ is common; written differs per unit.
     unit: {
       type: String,
-      enum: ['A Unit', 'C Unit'],
-      required: true,
+      enum: ['A Unit', 'C Unit', 'Both'],
+      default: 'Both',
     },
 
     course: {
@@ -77,9 +84,10 @@ const examSchema = new mongoose.Schema(
       default: [],
     },
 
-    // ✅ Written part config
+    // ✅ Written part config (settings shared; questions differ per unit)
     hasWrittenPart: { type: Boolean, default: false },
-    writtenQuestions: { type: [writtenQuestionSubSchema], default: [] },
+    writtenQuestionsA: { type: [writtenQuestionSubSchema], default: [] },
+    writtenQuestionsC: { type: [writtenQuestionSubSchema], default: [] },
     writtenDuration: { type: Number, default: 30, min: 0 },
     writtenTotalMarks: { type: Number, default: 20, min: 0 },
     writtenPassMarks: { type: Number, default: 8, min: 0 },

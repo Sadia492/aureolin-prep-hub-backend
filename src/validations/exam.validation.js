@@ -41,7 +41,7 @@ const mcqQuestionSchema = Joi.object({
 const createExam = {
   body: Joi.object({
     title: Joi.string().required(),
-    unit: Joi.string().valid('A Unit', 'C Unit').required(),
+    unit: Joi.string().valid('A Unit', 'C Unit', 'Both').default('Both'),
     course: Joi.string().allow(null, ''),
 
     sections: Joi.array().items(
@@ -54,7 +54,8 @@ const createExam = {
     questions: Joi.array().items(mcqQuestionSchema).default([]),
 
     hasWrittenPart: Joi.boolean().default(false),
-    writtenQuestions: Joi.array().items(writtenQuestionSchema).default([]),
+    writtenQuestionsA: Joi.array().items(writtenQuestionSchema).default([]),
+    writtenQuestionsC: Joi.array().items(writtenQuestionSchema).default([]),
     writtenDuration: Joi.number().min(0).default(30),
     writtenTotalMarks: Joi.number().min(0).default(20),
     writtenPassMarks: Joi.number().min(0).default(8),
@@ -78,7 +79,7 @@ const updateExam = {
   }),
   body: Joi.object({
     title: Joi.string(),
-    unit: Joi.string().valid('A Unit', 'C Unit'),
+    unit: Joi.string().valid('A Unit', 'C Unit', 'Both'),
     course: Joi.string().allow(null, ''),
 
     sections: Joi.array().items(
@@ -91,7 +92,8 @@ const updateExam = {
     questions: Joi.array().items(mcqQuestionSchema),
 
     hasWrittenPart: Joi.boolean(),
-    writtenQuestions: Joi.array().items(writtenQuestionSchema),
+    writtenQuestionsA: Joi.array().items(writtenQuestionSchema),
+    writtenQuestionsC: Joi.array().items(writtenQuestionSchema),
     writtenDuration: Joi.number().min(0),
     writtenTotalMarks: Joi.number().min(0),
     writtenPassMarks: Joi.number().min(0),
@@ -111,7 +113,7 @@ const updateExam = {
 
 const getExams = {
   query: Joi.object({
-    unit: Joi.string().valid('A Unit', 'C Unit'),
+    unit: Joi.string().valid('A Unit', 'C Unit', 'Both'),
     isPublished: Joi.boolean(),
     search: Joi.string().allow(''),
     limit: Joi.number().integer().min(1),
@@ -130,6 +132,15 @@ const deleteExam = {
   }),
 };
 
+const selectWrittenUnit = {
+  params: Joi.object({
+    examId: Joi.string().required(),
+  }),
+  body: Joi.object({
+    writtenUnit: Joi.string().valid('A Unit', 'C Unit').required(),
+  }),
+};
+
 const submitExam = {
   params: Joi.object({
     examId: Joi.string().required(),
@@ -144,6 +155,7 @@ const submitExam = {
       )
       .default([]),
     chosenOptionalSubjects: Joi.array().items(Joi.string()).default([]),
+    writtenUnit: Joi.string().valid('A Unit', 'C Unit').allow(null, '').default(null),
 
     writtenAnswers: Joi.array()
       .items(
@@ -172,6 +184,7 @@ const saveDraft = {
       )
       .default([]),
     chosenOptionalSubjects: Joi.array().items(Joi.string()).default([]),
+    writtenUnit: Joi.string().valid('A Unit', 'C Unit').allow(null, '').default(null), // ✅ Added this
     writtenAnswers: Joi.array()
       .items(
         Joi.object({
@@ -208,6 +221,7 @@ module.exports = {
   getExams,
   getExam,
   deleteExam,
+  selectWrittenUnit,
   submitExam,
   saveDraft,
   gradeWritten,

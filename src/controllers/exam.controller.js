@@ -64,6 +64,16 @@ const startExam = catchAsync(async (req, res) => {
   res.send(new ApiResponse(httpStatus.OK, data, 'Exam started'));
 });
 
+// ✅ Student picks which unit's written part to attempt; returns only that unit's questions
+const selectWrittenUnit = catchAsync(async (req, res) => {
+  const data = await examService.selectWrittenUnit(
+    req.params.examId,
+    req.user.id,
+    req.body.writtenUnit
+  );
+  res.send(new ApiResponse(httpStatus.OK, data, 'Written unit selected'));
+});
+
 const submitExam = catchAsync(async (req, res) => {
   const attempt = await examService.submitExam(
     req.params.examId,
@@ -129,6 +139,7 @@ module.exports = {
   updateExam,
   deleteExam,
   startExam,
+  selectWrittenUnit,
   submitExam,
   saveDraft,
   gradeWritten,

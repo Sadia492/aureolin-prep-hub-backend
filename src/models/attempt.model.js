@@ -18,6 +18,9 @@ const attemptSchema = new mongoose.Schema(
 
     chosenOptionalSubjects: [{ type: String }],
 
+    // ✅ Unit the student chose for the written part ('A Unit' | 'C Unit')
+    writtenUnit: { type: String, default: null },
+
     // ✅ draft answers (autosaved during the exam)
     draftAnswers: [
       {

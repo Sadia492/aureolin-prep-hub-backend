@@ -19,6 +19,30 @@ const examForDeadline = (exam) => {
   return { ...obj, duration: getExamTotalDurationMin(exam) };
 };
 
+// ✅ MCQ is common; written questions differ per unit. Pick the set for a unit.
+const getWrittenQuestionsForUnit = (exam, unit) => {
+  if (unit === 'A Unit') return exam.writtenQuestionsA || [];
+  if (unit === 'C Unit') return exam.writtenQuestionsC || [];
+  return [];
+};
+
+// Group written questions by subject for the student UI
+const groupWrittenBySubject = (questions = []) => {
+  const grouped = {};
+  questions.forEach((q) => {
+    if (!grouped[q.subject]) grouped[q.subject] = [];
+    grouped[q.subject].push({
+      _id: q._id,
+      question: q.question,
+      images: q.images || [],
+      subject: q.subject,
+      marks: q.marks,
+      order: q.order,
+    });
+  });
+  return grouped;
+};
+
 // ============ CRUD ============
 
 const createExam = async (examBody) => {
@@ -29,13 +53,15 @@ const createExam = async (examBody) => {
     }
   }
 
-  // Auto-order written questions
-  if (Array.isArray(examBody.writtenQuestions)) {
-    examBody.writtenQuestions = examBody.writtenQuestions.map((q, i) => ({
-      ...q,
-      order: q.order ?? i,
-    }));
-  }
+  // Auto-order written questions for each unit
+  ['writtenQuestionsA', 'writtenQuestionsC'].forEach((field) => {
+    if (Array.isArray(examBody[field])) {
+      examBody[field] = examBody[field].map((q, i) => ({
+        ...q,
+        order: q.order ?? i,
+      }));
+    }
+  });
   if (Array.isArray(examBody.questions)) {
     examBody.questions = examBody.questions.map((q, i) => ({
       ...q,
@@ -108,12 +134,14 @@ const updateExamById = async (examId, updateBody) => {
       order: q.order ?? i,
     }));
   }
-  if (updateBody.writtenQuestions) {
-    updateBody.writtenQuestions = updateBody.writtenQuestions.map((q, i) => ({
-      ...q,
-      order: q.order ?? i,
-    }));
-  }
+  ['writtenQuestionsA', 'writtenQuestionsC'].forEach((field) => {
+    if (updateBody[field]) {
+      updateBody[field] = updateBody[field].map((q, i) => ({
+        ...q,
+        order: q.order ?? i,
+      }));
+    }
+  });
 
   Object.assign(exam, updateBody);
   await exam.save();
@@ -217,21 +245,18 @@ const startExam = async (examId, userId) => {
     });
   });
 
-  // Group written questions by subject
-  const groupedWritten = {};
-  if (exam.hasWrittenPart) {
-    exam.writtenQuestions.forEach((q) => {
-      if (!groupedWritten[q.subject]) groupedWritten[q.subject] = [];
-      groupedWritten[q.subject].push({
-        _id: q._id,
-        question: q.question,
-        images: q.images || [],
-        subject: q.subject,
-        marks: q.marks,
-        order: q.order,
-      });
-    });
-  }
+  // ✅ Written units available to choose (only those that actually have questions)
+  const writtenUnits = exam.hasWrittenPart
+    ? ['A Unit', 'C Unit'].filter(
+        (u) => getWrittenQuestionsForUnit(exam, u).length > 0
+      )
+    : [];
+
+  // ✅ Only reveal the chosen unit's questions (student picks in the written tab)
+  const chosenWrittenUnit = attempt.writtenUnit || null;
+  const writtenQuestionsBySubject = chosenWrittenUnit
+    ? groupWrittenBySubject(getWrittenQuestionsForUnit(exam, chosenWrittenUnit))
+    : {};
 
   // ✅ Remaining seconds = personal deadline − now
   const personalDeadline = new Date(
@@ -267,8 +292,41 @@ const startExam = async (examId, userId) => {
     previousAnswers: attempt.draftAnswers || [],
     previousWrittenAnswers: attempt.draftWrittenAnswers || [],
     chosenOptionalSubjects: attempt.chosenOptionalSubjects || [],
+    writtenUnit: chosenWrittenUnit,
+    writtenUnits,
     questionsBySubject: grouped,
-    writtenQuestionsBySubject: groupedWritten,
+    writtenQuestionsBySubject,
+  };
+};
+
+// ============ Student: Select written unit (reveals that unit's questions) ============
+
+const selectWrittenUnit = async (examId, userId, writtenUnit) => {
+  const exam = await Exam.findById(examId);
+  if (!exam) throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found');
+  if (!exam.hasWrittenPart) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'This exam has no written part');
+  }
+
+  const attempt = await Attempt.findOne({ student: userId, exam: examId });
+  if (!attempt || attempt.status !== 'live') {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'No active attempt found');
+  }
+
+  const questions = getWrittenQuestionsForUnit(exam, writtenUnit);
+  if (questions.length === 0) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `No written questions available for ${writtenUnit}`
+    );
+  }
+
+  attempt.writtenUnit = writtenUnit;
+  await attempt.save();
+
+  return {
+    writtenUnit,
+    writtenQuestionsBySubject: groupWrittenBySubject(questions),
   };
 };
 
@@ -311,7 +369,7 @@ const markAttemptFailedIfExpired = async (attempt) => {
 const submitExam = async (
   examId,
   userId,
-  { answers = [], chosenOptionalSubjects = [], writtenAnswers = [] }
+  { answers = [], chosenOptionalSubjects = [], writtenAnswers = [], writtenUnit = null }
 ) => {
   const exam = await Exam.findById(examId);
   if (!exam) throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found');
@@ -418,11 +476,12 @@ const submitExam = async (
   const mcqPassed = passedOverall && passedEnglish;
 
   // ===== Written snapshot (NOT graded) =====
+  const resolvedWrittenUnit = writtenUnit || attempt.writtenUnit || null;
   const writtenSnapshot = [];
   let writtenMaxTotal = 0;
 
   if (exam.hasWrittenPart) {
-    exam.writtenQuestions.forEach((q) => {
+    getWrittenQuestionsForUnit(exam, resolvedWrittenUnit).forEach((q) => {
       const isCompulsory = compulsorySubjects.includes(q.subject);
       const isChosen = chosenOptionalSubjects.includes(q.subject);
       if (!isCompulsory && !isChosen) return;
@@ -464,6 +523,7 @@ const submitExam = async (
   attempt.passedOverall = passedOverall;
   attempt.passedEnglish = passedEnglish;
 
+  attempt.writtenUnit = resolvedWrittenUnit;
   attempt.writtenAnswers = writtenSnapshot;
   attempt.draftWrittenAnswers = [];
   attempt.writtenTotalMarks = writtenMaxTotal;
@@ -486,7 +546,7 @@ const submitExam = async (
 const saveDraft = async (
   examId,
   userId,
-  { answers = [], chosenOptionalSubjects = [], writtenAnswers = [] }
+  { answers = [], chosenOptionalSubjects = [], writtenAnswers = [], writtenUnit = null }
 ) => {
   const exam = await Exam.findById(examId);
   if (!exam) throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found');
@@ -512,6 +572,9 @@ const saveDraft = async (
   attempt.draftAnswers = answers;
   if (chosenOptionalSubjects.length > 0) {
     attempt.chosenOptionalSubjects = chosenOptionalSubjects;
+  }
+  if (writtenUnit) {
+    attempt.writtenUnit = writtenUnit;
   }
   if (exam.hasWrittenPart) {
     attempt.draftWrittenAnswers = writtenAnswers;
@@ -607,6 +670,7 @@ module.exports = {
   updateExamById,
   deleteExamById,
   startExam,
+  selectWrittenUnit,
   submitExam,
   saveDraft,
   gradeWrittenAttempt,
