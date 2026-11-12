@@ -94,6 +94,15 @@ const updateExam = {
     hasWrittenPart: Joi.boolean(),
     writtenQuestionsA: Joi.array().items(writtenQuestionSchema),
     writtenQuestionsC: Joi.array().items(writtenQuestionSchema),
+
+    // ✅ ids the editor explicitly deleted — lets the server merge instead of
+    // blindly replacing the whole array (protects concurrent editors' questions)
+    removedQuestionIds: Joi.object({
+      questions: Joi.array().items(Joi.string()),
+      writtenQuestionsA: Joi.array().items(Joi.string()),
+      writtenQuestionsC: Joi.array().items(Joi.string()),
+    }),
+
     writtenDuration: Joi.number().min(0),
     writtenTotalMarks: Joi.number().min(0),
     writtenPassMarks: Joi.number().min(0),
@@ -129,6 +138,32 @@ const getExam = {
 const deleteExam = {
   params: Joi.object({
     examId: Joi.string().required(),
+  }),
+};
+
+// ✅ Append-only additions (omit `order` so the server assigns it atomically)
+const addMcqQuestions = {
+  params: Joi.object({
+    examId: Joi.string().required(),
+  }),
+  body: Joi.object({
+    questions: Joi.array()
+      .items(mcqQuestionSchema.keys({ order: Joi.number() }))
+      .min(1)
+      .required(),
+  }),
+};
+
+const addWrittenQuestions = {
+  params: Joi.object({
+    examId: Joi.string().required(),
+  }),
+  body: Joi.object({
+    unit: Joi.string().valid('A Unit', 'C Unit').required(),
+    questions: Joi.array()
+      .items(writtenQuestionSchema.keys({ order: Joi.number() }))
+      .min(1)
+      .required(),
   }),
 };
 
@@ -221,6 +256,8 @@ module.exports = {
   getExams,
   getExam,
   deleteExam,
+  addMcqQuestions,
+  addWrittenQuestions,
   selectWrittenUnit,
   submitExam,
   saveDraft,

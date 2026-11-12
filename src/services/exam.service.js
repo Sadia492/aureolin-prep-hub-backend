@@ -2,22 +2,12 @@
 const httpStatus = require('http-status').default;
 const { Exam, Course, Attempt } = require('../models');
 const ApiError = require('../utils/ApiError');
-const {
-  getExamDeadline,
-  getEffectiveDeadline,
-} = require('../config/examHelpers');
 
 // ============ Helpers ============
 
 // ✅ Total duration = MCQ duration + written duration (if enabled)
 const getExamTotalDurationMin = (exam) =>
   (exam.duration || 0) + (exam.hasWrittenPart ? exam.writtenDuration || 0 : 0);
-
-// Return a shallow copy of exam with adjusted duration for deadline math
-const examForDeadline = (exam) => {
-  const obj = exam.toObject ? exam.toObject() : { ...exam };
-  return { ...obj, duration: getExamTotalDurationMin(exam) };
-};
 
 // ✅ MCQ is common; written questions differ per unit. Pick the set for a unit.
 const getWrittenQuestionsForUnit = (exam, unit) => {
@@ -109,6 +99,28 @@ const getExamById = async (examId) => {
     .populate('createdBy', 'name email role');
 };
 
+// ✅ Merge incoming questions with the ones already on the server so two people
+// editing the same exam never wipe each other's saved questions.
+// - the editor's items keep their order / edits / brand-new questions
+// - questions another editor saved (that this editor never loaded) are preserved
+// - only the ids this editor explicitly deleted are actually removed
+const mergeQuestionArray = (serverArr = [], incomingArr = [], removedIds = []) => {
+  const removed = new Set((removedIds || []).map(String));
+  const incomingIds = new Set(
+    (incomingArr || []).filter((q) => q && q._id).map((q) => String(q._id))
+  );
+
+  const merged = (incomingArr || []).map((q) => ({ ...q }));
+
+  (serverArr || []).forEach((s) => {
+    const id = String(s._id);
+    if (removed.has(id) || incomingIds.has(id)) return;
+    merged.push(s.toObject ? s.toObject() : s);
+  });
+
+  return merged.map((q, i) => ({ ...q, order: q.order ?? i }));
+};
+
 const updateExamById = async (examId, updateBody) => {
   const exam = await Exam.findById(examId);
   if (!exam) {
@@ -122,6 +134,9 @@ const updateExamById = async (examId, updateBody) => {
     }
   }
 
+  const removedQuestionIds = updateBody.removedQuestionIds || {};
+  delete updateBody.removedQuestionIds;
+
   if (updateBody.sections) {
     updateBody.sections = updateBody.sections.map((s, i) => ({
       ...s,
@@ -129,17 +144,19 @@ const updateExamById = async (examId, updateBody) => {
     }));
   }
   if (updateBody.questions) {
-    updateBody.questions = updateBody.questions.map((q, i) => ({
-      ...q,
-      order: q.order ?? i,
-    }));
+    updateBody.questions = mergeQuestionArray(
+      exam.questions,
+      updateBody.questions,
+      removedQuestionIds.questions
+    );
   }
   ['writtenQuestionsA', 'writtenQuestionsC'].forEach((field) => {
     if (updateBody[field]) {
-      updateBody[field] = updateBody[field].map((q, i) => ({
-        ...q,
-        order: q.order ?? i,
-      }));
+      updateBody[field] = mergeQuestionArray(
+        exam[field],
+        updateBody[field],
+        removedQuestionIds[field]
+      );
     }
   });
 
@@ -158,6 +175,42 @@ const deleteExamById = async (examId) => {
   }
   await exam.deleteOne();
   return exam;
+};
+
+// ============ Atomic question additions (safe for concurrent editors) ============
+// Appends questions with $push so another teacher/admin saving the exam at the
+// same time can never wipe questions that were already saved.
+
+const pushToExamArray = async (examId, field, questions, extraSet = null) => {
+  const exam = await Exam.findById(examId).select(field);
+  if (!exam) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Exam not found');
+  }
+
+  const baseCount = (exam[field] || []).length;
+  const toPush = questions.map((q, i) => ({
+    ...q,
+    order: q.order ?? baseCount + i,
+  }));
+
+  const update = { $push: { [field]: { $each: toPush } } };
+  if (extraSet) update.$set = extraSet;
+
+  await Exam.findByIdAndUpdate(examId, update, { runValidators: true });
+
+  return Exam.findById(examId)
+    .populate('course', 'title unit')
+    .populate('createdBy', 'name email role');
+};
+
+// ✅ Add MCQ questions without touching existing ones
+const addMcqQuestions = async (examId, questions) =>
+  pushToExamArray(examId, 'questions', questions);
+
+// ✅ Add written questions for a unit without touching existing ones
+const addWrittenQuestions = async (examId, unit, questions) => {
+  const field = unit === 'A Unit' ? 'writtenQuestionsA' : 'writtenQuestionsC';
+  return pushToExamArray(examId, field, questions, { hasWrittenPart: true });
 };
 
 // ============ Student: Start Exam ============
@@ -189,35 +242,8 @@ const startExam = async (examId, userId) => {
   }
 
   if (attempt && attempt.status === 'live') {
-    // ✅ Resume: check only the student's own personal deadline
-    //    personal deadline = attempt.startedAt + totalDuration
-    const personalDeadline = new Date(
-      new Date(attempt.startedAt).getTime() + totalDurationMin * 60 * 1000
-    );
-
-    if (now > personalDeadline) {
-      // Time expired without submitting → mark failed
-      attempt.status = 'submitted';
-      attempt.submittedAt = personalDeadline;
-      attempt.isPassed = false;
-      attempt.passedOverall = false;
-      attempt.passedEnglish = false;
-      attempt.writtenPassed = false;
-      attempt.score = 0;
-      attempt.correct = 0;
-      attempt.wrong = 0;
-      attempt.unanswered = (exam.questions || []).length;
-      attempt.accuracy = 0;
-      attempt.writtenAwardedMarks = 0;
-      attempt.writtenGraded = !exam.hasWrittenPart;
-      await attempt.save();
-
-      throw new ApiError(
-        httpStatus.FORBIDDEN,
-        'Your time is up for this exam'
-      );
-    }
-    // Otherwise: resume — personalDeadline is still in the future
+    // ✅ Resume the live attempt. There is no time-based auto-close —
+    //    the exam stays open until a teacher/admin unpublishes it.
   } else {
     // ✅ First start: create live attempt with startedAt = NOW
     attempt = await Attempt.create({
@@ -328,40 +354,6 @@ const selectWrittenUnit = async (examId, userId, writtenUnit) => {
     writtenUnit,
     writtenQuestionsBySubject: groupWrittenBySubject(questions),
   };
-};
-
-
-// backend/src/services/exam.service.js — add this helper
-
-const markAttemptFailedIfExpired = async (attempt) => {
-  if (!attempt || attempt.status !== 'live') return attempt;
-
-  const exam = await Exam.findById(attempt.exam);
-  if (!exam) return attempt;
-
-  const examWithWrittenDuration = examForDeadline(exam);
-  const deadline = getEffectiveDeadline(examWithWrittenDuration, attempt);
-
-  const now = new Date();
-  if (now <= deadline) return attempt;
-
-  // Time is up and student never submitted → mark as failed attempt
-  attempt.status = 'submitted'; // counts as final, but FAILED
-  attempt.submittedAt = deadline;
-  attempt.isPassed = false;
-  attempt.passedOverall = false;
-  attempt.passedEnglish = false;
-  attempt.writtenPassed = false;
-  attempt.score = 0;
-  attempt.correct = 0;
-  attempt.wrong = 0;
-  attempt.unanswered = (exam.questions || []).length;
-  attempt.accuracy = 0;
-  attempt.writtenAwardedMarks = 0;
-  attempt.writtenGraded = !exam.hasWrittenPart;
-
-  await attempt.save();
-  return attempt;
 };
 
 // ============ Student: Submit (MCQ auto-graded, written left for teacher) ============
@@ -559,16 +551,7 @@ const saveDraft = async (
     throw new ApiError(httpStatus.BAD_REQUEST, 'No active attempt found');
   }
 
-  // ✅ Personal deadline = startedAt + total duration
-  const totalDurationMin = getExamTotalDurationMin(exam);
-  const personalDeadline = new Date(
-    new Date(attempt.startedAt).getTime() + totalDurationMin * 60 * 1000
-  );
-
-  if (new Date() > personalDeadline) {
-    throw new ApiError(httpStatus.FORBIDDEN, 'Time is up');
-  }
-
+  // ✅ No time-based auto-close — drafts can be saved while the exam is published
   attempt.draftAnswers = answers;
   if (chosenOptionalSubjects.length > 0) {
     attempt.chosenOptionalSubjects = chosenOptionalSubjects;
@@ -655,11 +638,6 @@ const queryAttempts = async (filter = {}, options = {}) => {
     .populate('exam', 'title unit hasWrittenPart writtenGraded')
     .sort({ submittedAt: -1 });
 
-  // ✅ Auto-mark expired live attempts as failed
-  await Promise.all(
-    attempts.map((a) => markAttemptFailedIfExpired(a))
-  );
-
   return attempts;
 };
 
@@ -669,11 +647,12 @@ module.exports = {
   getExamById,
   updateExamById,
   deleteExamById,
+  addMcqQuestions,
+  addWrittenQuestions,
   startExam,
   selectWrittenUnit,
   submitExam,
   saveDraft,
   gradeWrittenAttempt,
   queryAttempts,
-    markAttemptFailedIfExpired,
 };

@@ -59,6 +59,37 @@ const deleteExam = catchAsync(async (req, res) => {
   res.status(httpStatus.NO_CONTENT).send();
 });
 
+// ✅ Append MCQ questions atomically — never overwrites another editor's questions
+const addMcqQuestions = catchAsync(async (req, res) => {
+  const exam = await examService.addMcqQuestions(
+    req.params.examId,
+    req.body.questions
+  );
+  res
+    .status(httpStatus.CREATED)
+    .send(
+      new ApiResponse(httpStatus.CREATED, exam, 'Questions added successfully')
+    );
+});
+
+// ✅ Append written questions for a unit atomically — never overwrites other editors
+const addWrittenQuestions = catchAsync(async (req, res) => {
+  const exam = await examService.addWrittenQuestions(
+    req.params.examId,
+    req.body.unit,
+    req.body.questions
+  );
+  res
+    .status(httpStatus.CREATED)
+    .send(
+      new ApiResponse(
+        httpStatus.CREATED,
+        exam,
+        'Written questions added successfully'
+      )
+    );
+});
+
 const startExam = catchAsync(async (req, res) => {
   const data = await examService.startExam(req.params.examId, req.user.id);
   res.send(new ApiResponse(httpStatus.OK, data, 'Exam started'));
@@ -138,6 +169,8 @@ module.exports = {
   getExam,
   updateExam,
   deleteExam,
+  addMcqQuestions,
+  addWrittenQuestions,
   startExam,
   selectWrittenUnit,
   submitExam,

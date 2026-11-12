@@ -21,6 +21,21 @@ router
     examController.getExams
   );
 
+// ===== Teacher/Admin: Append questions atomically (BEFORE /:examId) =====
+router.post(
+  '/:examId/questions',
+  auth('manageExams'),
+  validate(examValidation.addMcqQuestions),
+  examController.addMcqQuestions
+);
+
+router.post(
+  '/:examId/written-questions',
+  auth('manageExams'),
+  validate(examValidation.addWrittenQuestions),
+  examController.addWrittenQuestions
+);
+
 // ===== Teacher/Admin: Attempts list + grading (BEFORE /:examId) =====
 router.get(
   '/attempts',
